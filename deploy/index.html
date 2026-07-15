@@ -640,12 +640,14 @@
              to zero; <em>Exponential</em> decays the peak at a chosen rate with no hard cutoff (a fat tail, like
              the direct mode&rsquo;s exponential shape). <strong>How the excess itself is timed</strong> across
              years is a separate, independent toggle: <em>All in 2020</em> (the default) puts the whole cumulative
-             excess in a single year; <em>Linear fade</em> spreads it from 2020 down to zero over a chosen number
-             of years; <em>Empirical</em> is a preset matching the actual COVID pattern &mdash; 2020 and 2021 near
-             the same peak (2021 a little lower), about half that level in 2022, a muted tail in 2023, and almost
-             nothing left by 2024. Changing how the excess is timed only re-times <em>when</em> the deaths
-             happened (the total X and the solved peak are unaffected); changing the harvest shape changes how
-             the <em>repayment</em> grades away.</p>
+             excess in a single year; <em>Linear fade</em> spreads it triangularly, x(j) &prop; N&minus;j, from
+             2020 down to zero over a chosen number of years (over 3 years: 50% / 33% / 17% of the total);
+             <em>Empirical</em> is a <strong>Gaussian fade, x(j) &prop; 2<sup>&minus;j&sup2;/4</sup></strong>,
+             calibrated to the actual COVID pattern &mdash; relative to 2020&rsquo;s level: 2021 = 84% (slightly
+             lower), 2022 = 50% (exactly half), 2023 = 21% (muted), 2024 = 6% (almost normal), zero from 2025.
+             As shares of the total excess that is 38% / 32% / 19% / 8% / 2%. Changing how the excess is timed
+             only re-times <em>when</em> the deaths happened (the total X and the solved peak are unaffected);
+             changing the harvest shape changes how the <em>repayment</em> grades away.</p>
           <p>Bookkeeping is in absolute deaths per person alive at the start of 2020. The COVID path adds the
              excess (under its chosen timing) and subtracts the harvested deaths (under its chosen shape);
              dividing by the surviving population gives the with-COVID death rates and the mortality multiple
@@ -923,10 +925,14 @@ const TABLE_BASE_YEAR = 2019;   // calendar year of the SSA 2019 base table
 const COVID_YEAR = 2020;        // all excess deaths are attributed to this year
 const N_BANDS = 21;             // 5-year bands: 0-4, ..., 95-99, 100+
 const DEFAULT_DECAY_RATE = 0.30;
-// Relative excess "level" by year, 2020..2024 (index 0..4); zero from 2025 on.
-// Matches the empirical COVID pattern: 2020/2021 near peak (2021 slightly
-// lower), ~half that level in 2022, a muted 2023, almost gone by 2024.
-const EMPIRICAL_EXCESS_WEIGHTS = [1.00, 0.90, 0.50, 0.20, 0.05];
+// Empirical excess timing: a GAUSSIAN fade calibrated to the observed
+// 2020-2024 pattern. Relative excess level in year j after 2020:
+//     w(j) = 2^(-j^2/4)   for j = 0..4; zero from j = 5 (2025) on
+// -> 2020 = 100%, 2021 = 84%, 2022 = 50% (exactly half), 2023 = 21%,
+//    2024 = 6%, 2025+ = 0. Shares of the total: 38% / 32% / 19% / 8% / 2%.
+const EMPIRICAL_EXCESS_YEARS = 5;
+const EMPIRICAL_EXCESS_WEIGHTS = Array.from(
+  { length: EMPIRICAL_EXCESS_YEARS }, (_, j) => Math.pow(2, -(j * j) / 4));
 const bandIndex = (age) => Math.min(Math.floor(Math.max(age, 0) / 5), N_BANDS - 1);
 const bandLabel = (i) => (i === N_BANDS - 1 ? "100+" : (5 * i) + "–" + (5 * i + 4));
 
@@ -1683,28 +1689,42 @@ function syncControls() {
   $("ex-val").value = state.ex.valuationYear;
   $("ex-grade").value = state.ex.gradeOut;
   $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
-  $("ex-decay").value = state.ex.decayRate;
-  $("ex-decay-out").textContent = state.ex.decayRate.toFixed(2);
-  $("ex-decay-hint").textContent = `Fat tail, no hard cutoff. Effect halves every ~${(Math.LN2 / state.ex.decayRate).toFixed(1)} years.`;
+  const exR = state.ex.decayRate, exG = state.ex.gradeOut;
+  $("ex-decay").value = exR;
+  $("ex-decay-out").textContent = exR.toFixed(2) + "/yr";
+  const dPct = (t) => Math.round(Math.exp(-exR * (t - 1)) * 100) + "%";
+  $("ex-decay-hint").textContent =
+    `f(t) = peak × e^(−${exR.toFixed(2)}×(t−1)): the effect halves every ~${(Math.LN2 / exR).toFixed(1)} yrs — ` +
+    `2022 = ${dPct(2)}, 2025 = ${dPct(6)}, 2030 = ${dPct(11)} of the 2021 peak. ` +
+    `The peak itself is solved from the excess (it does not move with this slider); the rate sets how long the dip lasts.`;
   const exPfUsesGradeOut = state.ex.pfShape === "linear" || state.ex.pfShape === "step";
   $("ex-pf-linear").setAttribute("aria-pressed", state.ex.pfShape === "linear");
   $("ex-pf-step").setAttribute("aria-pressed", state.ex.pfShape === "step");
   $("ex-pf-exp").setAttribute("aria-pressed", state.ex.pfShape === "exponential");
+  const midT = 1 + Math.floor(exG / 2);
   $("ex-pf-hint").textContent = state.ex.pfShape === "linear"
-    ? "Linear: the solved 2021 peak ramps down to zero at the grade-out horizon."
+    ? `Linear: f(t) = peak × (1 − (t−1)/${exG}) — ramps from the solved 2021 peak straight down to zero: ` +
+      `${2020 + midT} = ${Math.round((1 - (midT - 1) / exG) * 100)}% of the peak, ${2021 + exG} = 0%.`
     : state.ex.pfShape === "step"
-      ? "Step: the FULL solved peak applies to every year inside the horizon, then drops to zero."
-      : "Exponential: the solved peak decays but never fully reaches zero.";
+      ? `Step: f(t) = peak, flat for 2021–${2020 + exG}, then zero — the FULL solved peak applies to every year inside the horizon.`
+      : "Exponential: f(t) = peak × e^(−rate×(t−1)) — a fat tail that never fully reaches zero. The decay-rate slider below sets how fast it fades.";
   $("ex-grade-row").classList.toggle("hidden", !exPfUsesGradeOut);
   $("ex-decay-row").classList.toggle("hidden", exPfUsesGradeOut);
   $("ex-exc-instant").setAttribute("aria-pressed", state.ex.excShape === "instant");
   $("ex-exc-linear").setAttribute("aria-pressed", state.ex.excShape === "linear");
   $("ex-exc-empirical").setAttribute("aria-pressed", state.ex.excShape === "empirical");
+  const excW = EMPIRICAL_EXCESS_WEIGHTS, excWSum = excW.reduce((a, b) => a + b, 0);
+  const empLevels = excW.map((w) => Math.round(w * 100) + "%").join(" / ");
+  const empShares = excW.map((w) => Math.round((w / excWSum) * 100) + "%").join(" / ");
+  const exN = state.ex.spreadYears, triSum = exN * (exN + 1) / 2;
+  const triShares = Array.from({ length: exN }, (_, j) => Math.round(((exN - j) / triSum) * 100) + "%").join(" / ");
   $("ex-exc-hint").textContent = state.ex.excShape === "instant"
-    ? "All in 2020: the entire excess lands in a single year."
+    ? "All in 2020: x(2020) = 100% of the excess deaths; later years have none (pure harvesting from 2021 on)."
     : state.ex.excShape === "linear"
-      ? "Linear fade: the excess spreads from 2020, fading linearly to zero over the years below."
-      : "Empirical: 2020 and 2021 near the same peak (2021 a bit lower), about half that level in 2022, a muted 2023, and almost nothing left by 2024.";
+      ? `Linear fade: x(j) ∝ (N − j). With N = ${exN}, the total excess splits ${triShares} across 2020–${2019 + exN}.`
+      : `Empirical: a Gaussian fade x(j) ∝ 2^(−j²/4), fitted to the observed pattern. Level vs 2020: ${empLevels} across 2020–2024 ` +
+        `(2021 slightly below 2020, exactly half by 2022, muted 2023, near-normal 2024), zero from 2025. ` +
+        `Shares of the total excess: ${empShares}.`;
   $("ex-spread-row").classList.toggle("hidden", state.ex.excShape !== "linear");
   $("ex-spread-years").value = state.ex.spreadYears;
 
@@ -1819,12 +1839,11 @@ function init() {
   });
   $("ex-grade").addEventListener("input", (e) => {
     state.ex.gradeOut = +e.target.value;
-    $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
-    render();
+    syncControls(); render();
   });
   $("ex-decay").addEventListener("input", (e) => {
     state.ex.decayRate = +e.target.value;
-    render();
+    syncControls(); render();
   });
   $("ex-pf-linear").addEventListener("click", () => { state.ex.pfShape = "linear"; syncControls(); render(); });
   $("ex-pf-step").addEventListener("click", () => { state.ex.pfShape = "step"; syncControls(); render(); });
@@ -1835,8 +1854,7 @@ function init() {
   $("ex-spread-years").addEventListener("change", (e) => {
     const v = parseInt(e.target.value, 10);
     if (Number.isFinite(v)) state.ex.spreadYears = Math.max(2, Math.min(10, v));
-    e.target.value = state.ex.spreadYears;
-    render();
+    syncControls(); render();
   });
 
   // Segmentation definition

@@ -176,10 +176,13 @@ WHAT TO SET (left pane, "COVID excess calibration"):
       Linear fade — spreads the same total over several
       years, fading to zero (e.g. 50% over 3 years = 25% /
       16.7% / 8.3%).
-      Empirical — a preset that matches the actual COVID
-      pattern: 2020 and 2021 about equally high (2021 a
-      little lower), roughly half that level in 2022, a
-      muted 2023, and almost nothing left by 2024.
+      Empirical — a bell-curve (Gaussian) fade fitted to
+      the actual COVID pattern: each year j after 2020
+      keeps 2^(-j^2/4) of the 2020 level, so relative to
+      2020 the excess runs 100% / 84% / 50% / 21% / 6%
+      across 2020-2024 (exactly half by 2022) and is zero
+      from 2025. As shares of the total excess that is
+      38% / 32% / 19% / 8% / 2%.
     Changing this only re-times the spike in the charts;
     the totals and the solved pullforward share do not
     change.

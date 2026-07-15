@@ -25,8 +25,10 @@ multiplier) with:
   horizon), step (full effect inside the horizon, then zero), or exponential
   (decay rate, no hard cutoff) — and **how the excess itself is timed across
   years** — all in 2020 (default), linear fade over N years, or an
-  **empirical** preset matching the actual COVID pattern (2020/2021 near the
-  same peak, ~half that level in 2022, a muted 2023, almost gone by 2024).
+  **empirical** Gaussian fade `x(j) ∝ 2^(−j²/4)` calibrated to the actual
+  COVID pattern (relative to 2020: 84% in 2021, exactly half in 2022, 21% in
+  2023, 6% in 2024, zero from 2025). Every sidebar hint discloses the active
+  shape's formula with live numeric examples.
   Every shape is normalized so the solved "peak" always means exactly "share
   of 2021's deaths pulled into 2020", regardless of which shapes are active.
   Includes a valuation-year input (default 2025; LE gain and multiples are
@@ -404,9 +406,11 @@ Runs the logic in reverse, per cohort defined by its **age in 2020** (index
   `t≥1`, no cutoff. Chosen independently of the direct mode's own shape.
 - **Excess timing `x(t)`** (0-indexed, `t=0` = 2020), independent of the
   harvest shape: `instant` puts all of `X` in 2020; `linear` spreads it
-  triangularly to zero over N years; `empirical` uses a fixed preset
-  `(1.00, 0.90, 0.50, 0.20, 0.05)` for 2020–2024 (zero from 2025), matching
-  the actual COVID pattern — normalized to sum to 1 then scaled by `X`.
+  triangularly (`x(j) ∝ N−j`) to zero over N years; `empirical` is a
+  **Gaussian fade `w(j) = 2^(−j²/4)`** for `j = 0..4`, zero from 2025 —
+  levels 100% / 84% / 50% / 21% / 6% of 2020 (halves exactly by 2022;
+  the untruncated 2025 value, 1.3%, is dropped), i.e. shares of the total
+  excess 38% / 32% / 19% / 8% / 2% — normalized to sum to 1, scaled by `X`.
 - **Solve**: harvested deaths must repay the excess, with the deficit coming
   from the cohort *as it ages* (this mutes later years since qx rises):
   `X = Σ_{t≥1} peak × w(t) × D_b(t)` where `D_b(t)` are baseline

@@ -32,10 +32,12 @@ HOW THE EXCESS ITSELF IS TIMED ACROSS YEARS
 ----------------------------------------------------------------------------
   python excess.py --excess-shape instant              # all in 2020 (default)
   python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
-  python excess.py --excess-shape empirical             # matches the actual COVID pattern:
-                                                        #   2020/2021 near peak (2021 a bit
-                                                        #   lower), ~half that in 2022, a
-                                                        #   muted 2023, almost gone by 2024
+  python excess.py --excess-shape empirical             # Gaussian fade w(j) = 2^(-j^2/4),
+                                                        #   fitted to the actual COVID
+                                                        #   pattern: 100/84/50/21/6% of the
+                                                        #   2020 level over 2020-2024, zero
+                                                        #   from 2025 (38/32/19/8/2% of the
+                                                        #   total excess)
 
 ----------------------------------------------------------------------------
 PER-BAND EXCESS (21 five-year bands: 0-4, 5-9, ..., 95-99, 100+)
@@ -132,7 +134,8 @@ def describe(args, excess_bands) -> str:
     if args.excess_shape == "linear":
         excess_desc = f"graded linearly to zero over {args.excess_spread} years"
     elif args.excess_shape == "empirical":
-        excess_desc = "empirical shape (2020/2021 near peak, ~half in 2022, muted 2023, ~gone by 2024)"
+        excess_desc = ("empirical Gaussian fade w(j) = 2^(-j^2/4): "
+                       "100/84/50/21/6% of the 2020 level over 2020-2024, zero after")
     else:
         excess_desc = "all in 2020"
     lines = [
@@ -180,7 +183,8 @@ def main():
                    dest="excess_shape",
                    help="how the 2020 excess itself is timed: instant (default, all in "
                         "2020), linear (fades over --excess-spread years), or empirical "
-                        "(matches the actual 2020-2024 COVID pattern)")
+                        "(Gaussian fade 2^(-j^2/4): 100/84/50/21/6%% of the 2020 level "
+                        "over 2020-2024, zero from 2025)")
     p.add_argument("--excess-spread", type=int, default=3, dest="excess_spread",
                    help="years over which the excess fades to zero, for --excess-shape "
                         "linear (default 3)")

@@ -43,11 +43,13 @@ shape:
 
     instant:   all of X lands in 2020 (t=0)
     linear:    X fades linearly to zero over N years from 2020 (a triangular
-               spread: 2020 gets the most, year N-1 the least)
-    empirical: a preset shape matching the actual 2020-2022 COVID experience —
-               2020 and 2021 near their peak (2021 slightly lower), about half
-               that level in 2022, a muted tail in 2023, almost nothing left
-               by 2024, and zero from 2025 on (EMPIRICAL_EXCESS_WEIGHTS)
+               spread x(j) proportional to N-j: 2020 gets the most, year N-1
+               the least; over 3 years that is 50% / 33% / 17% of the total)
+    empirical: a Gaussian fade w(j) = 2^(-j^2/4) calibrated to the observed
+               COVID pattern — relative to 2020's level: 2021 = 84%, 2022 =
+               50% (exactly half), 2023 = 21% (muted), 2024 = 6% (almost
+               normal), zero from 2025 on. As shares of the total excess:
+               38% / 32% / 19% / 8% / 2% (see EMPIRICAL_EXCESS_WEIGHTS)
 
 Period death rates, mortality multiples, and the valuation-year life
 expectancies follow directly:
@@ -84,11 +86,20 @@ TRAJECTORY_START = 2010
 TRAJECTORY_END = 2035
 DEFAULT_DECAY_RATE = 0.3
 
-# Relative excess "level" by year, 2020..2024 (index 0..4); zero from 2025 on.
-# Matches the empirical COVID pattern: 2020 and 2021 near their peak (2021
-# slightly lower), about half that level in 2022, a muted tail in 2023,
-# almost nothing left by 2024. Normalized to sum to 1 before scaling by X.
-EMPIRICAL_EXCESS_WEIGHTS = (1.00, 0.90, 0.50, 0.20, 0.05)
+# Empirical excess timing: a GAUSSIAN fade calibrated to the observed
+# 2020-2024 pattern. Relative excess level in year j after 2020:
+#
+#     w(j) = 2^(-j^2 / 4)     for j = 0..4;  zero from j = 5 (2025) on
+#
+# i.e. the level halves by year 2 and then collapses along a bell curve:
+#     2020 = 100%, 2021 = 84%, 2022 = 50% (exactly half), 2023 = 21%,
+#     2024 = 6%, 2025+ = 0  (the untruncated j=5 value, 1.3%, is dropped).
+# As shares of the TOTAL excess: 38% / 32% / 19% / 8% / 2%.
+# Normalized to sum to 1 before scaling by X.
+EMPIRICAL_EXCESS_YEARS = 5
+EMPIRICAL_EXCESS_WEIGHTS = tuple(
+    2.0 ** (-(j * j) / 4.0) for j in range(EMPIRICAL_EXCESS_YEARS)
+)
 
 PULLFORWARD_SHAPES = ("linear", "step", "exponential")
 EXCESS_SHAPES = ("instant", "linear", "empirical")
