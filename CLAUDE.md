@@ -60,8 +60,8 @@ The Python code below remains the source of truth for saved CSV output and sweep
 **Hosting it online:** `interface.html` is fully self-contained (no server, no
 external requests), so any static host works. Two deployments exist:
 
-1. **GitHub Pages (live)**: the repo is `github.com/galasaf/mortality-pullforward`
-   and the tool is served at **https://galasaf.github.io/mortality-pullforward/**
+1. **GitHub Pages (live)**: the repo is `github.com/galasaf/mortalitypullforward`
+   and the tool is served at **https://galasaf.github.io/mortalitypullforward/**
    (the root `index.html` is just a redirect to `interface.html`). Updating it =
    commit + `git push` to `main`; Pages rebuilds automatically in ~1 minute.
 2. **iWebFusion** shared hosting: `deploy/index.html` is the upload-ready copy
