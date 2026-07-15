@@ -58,12 +58,19 @@ multiplier) with:
 The Python code below remains the source of truth for saved CSV output and sweeps.
 
 **Hosting it online:** `interface.html` is fully self-contained (no server, no
-external requests), so any static host works. `deploy/index.html` is a
-ready-to-upload copy — the user hosts it on **iWebFusion** shared hosting
-(cPanel → File Manager → `public_html`); see "How to run this tool.txt"
-Part 5 for the steps. **After changing `interface.html`, refresh the copy**
-(`cp interface.html deploy/index.html`) and re-upload it. Nothing entered
-into the page leaves the visitor's browser; imported CSVs are parsed locally.
+external requests), so any static host works. Two deployments exist:
+
+1. **GitHub Pages (live)**: the repo is `github.com/galasaf/mortality-pullforward`
+   and the tool is served at **https://galasaf.github.io/mortality-pullforward/**
+   (the root `index.html` is just a redirect to `interface.html`). Updating it =
+   commit + `git push` to `main`; Pages rebuilds automatically in ~1 minute.
+2. **iWebFusion** shared hosting: `deploy/index.html` is the upload-ready copy
+   (cPanel → File Manager → `public_html`); see "How to run this tool.txt"
+   Part 5 for the steps. **After changing `interface.html`, refresh the copy**
+   (`cp interface.html deploy/index.html`) and re-upload it.
+
+Nothing entered into the page leaves the visitor's browser; imported CSVs are
+parsed locally.
 
 ### Testing sensitivities (easiest — no file editing)
 
