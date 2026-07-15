@@ -18,17 +18,24 @@ multiplier) with:
 - A **Model mode** switch at the top of the sidebar: "Assume pullforward"
   (the original mode, everything below) or "**Calibrate from excess**" — the
   reverse direction, where the user assumes each 5-year age band's cumulative
-  COVID excess deaths (% of one normal year's deaths, default 50%, all
-  attributed to 2020) and the model *solves* the pullforward: the share of
-  2021's deaths pulled into 2020, grading linearly to zero over a harvest
-  grade-out horizon. Includes a valuation-year input (default 2025; LE gain
-  and multiples are for people alive *then*), a 2010–2035 mortality-trajectory
-  chart (baseline vs COVID line, improvement projected backward and forward
-  from the 2019 table), an optional toggle grading the 2020 excess spike over
-  N years (re-times the spike only; totals and the solve are unchanged), an
-  infeasibility warning when the excess exceeds all deaths within the horizon,
-  and its own tiles/charts/summary table. Its Python twin is `excess.py`
-  (verified to ~1e-14 against the JS). See "Calibration mode" below.
+  COVID excess deaths (% of one normal year's deaths, default 50%) and the
+  model *solves* the pullforward: the share of 2021's deaths pulled into
+  2020. Two independent shape toggles control the calibration: **how the
+  pullforward (harvest) grades away** — linear (ramps to zero at a grade-out
+  horizon), step (full effect inside the horizon, then zero), or exponential
+  (decay rate, no hard cutoff) — and **how the excess itself is timed across
+  years** — all in 2020 (default), linear fade over N years, or an
+  **empirical** preset matching the actual COVID pattern (2020/2021 near the
+  same peak, ~half that level in 2022, a muted 2023, almost gone by 2024).
+  Every shape is normalized so the solved "peak" always means exactly "share
+  of 2021's deaths pulled into 2020", regardless of which shapes are active.
+  Includes a valuation-year input (default 2025; LE gain and multiples are
+  for people alive *then*), a 2010–2035 mortality-trajectory chart (baseline
+  vs COVID line, improvement projected backward and forward from the 2019
+  table), an infeasibility warning when the excess exceeds all deaths
+  available to harvest under the chosen shape, and its own tiles/charts/
+  summary table. Its Python twin is `excess.py` (verified to ~1e-14 against
+  the JS across all shape combinations). See "Calibration mode" below.
 - All 9 named scenario presets, plus free-form sliders for peak fraction,
   grade-out horizon (0–100; 0 = no pullforward), shape (linear/step/exponential),
   and decay rate. Step = full peak effect for every year inside the horizon
@@ -115,10 +122,18 @@ caused* rather than an assumed pullforward curve:
 
 ```bash
 python excess.py                       # print full help + worked examples
-python excess.py --run                 # defaults: 50% excess, 7-yr grade-out, valued 2025
+python excess.py --run                 # defaults: 50% excess, 7-yr linear grade-out, valued 2025
 python excess.py --excess-all 60 --grade-out 10 --valuation-year 2027
 python excess.py --excess "30,30,...,45"   # 21 values, one per 5-yr band (0-4 ... 100+)
-python excess.py --grade-excess 3      # spread the 2020 spike over 3 years (timing only)
+
+# How the pullforward (harvest) grades away:
+python excess.py --pullforward-shape step --grade-out 3
+python excess.py --pullforward-shape exponential --decay-rate 0.3   # no hard cutoff
+
+# How the excess itself is timed across years (independent of the above):
+python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
+python excess.py --excess-shape empirical                  # matches actual 2020-2024 pattern
+
 python excess.py --age 65 --sex male --save   # CSVs to output/excess_calibration/
 ```
 
@@ -380,19 +395,32 @@ Runs the logic in reverse, per cohort defined by its **age in 2020** (index
   (divided out) for years before 2019. This differs from the direct mode,
   which counts projection years from 2022.
 - **Input**: cumulative excess `E` per 5-year band (fraction of one year's
-  deaths at the 2020 age). Excess deaths `X = E × qx(age, 2020)`, all
-  attributed to 2020.
+  deaths at the 2020 age). Excess deaths `X = E × qx(age, 2020)`.
+- **Harvest shape `w(t)`** (1-indexed calendar offset from 2020, always
+  normalized so `w(1) = 1.0` — `peak` therefore always means exactly "share
+  of 2021's deaths pulled into 2020", regardless of shape):
+  `linear: w(t) = max(0, 1−(t−1)/G)` for `t=1..G`; `step: w(t) = 1` for
+  `t=1..G`, else 0; `exponential: w(t) = exp(−decay_rate×(t−1))` for all
+  `t≥1`, no cutoff. Chosen independently of the direct mode's own shape.
+- **Excess timing `x(t)`** (0-indexed, `t=0` = 2020), independent of the
+  harvest shape: `instant` puts all of `X` in 2020; `linear` spreads it
+  triangularly to zero over N years; `empirical` uses a fixed preset
+  `(1.00, 0.90, 0.50, 0.20, 0.05)` for 2020–2024 (zero from 2025), matching
+  the actual COVID pattern — normalized to sum to 1 then scaled by `X`.
 - **Solve**: harvested deaths must repay the excess, with the deficit coming
   from the cohort *as it ages* (this mutes later years since qx rises):
-  `X = Σ_{t=1..G} peak × (1 − (t−1)/G) × D_b(t)` where `D_b(t)` are baseline
-  unconditional deaths. `peak` = solved share of 2021 deaths pulled into 2020.
-  If `peak > 1` the case is **infeasible**: f is capped at 100% and flagged.
+  `X = Σ_{t≥1} peak × w(t) × D_b(t)` where `D_b(t)` are baseline
+  unconditional deaths. If `peak > 1` the case is **infeasible**: f is capped
+  at 100% and flagged.
 - **COVID path**: `D_c(t) = D_b(t) + x(t) − h(t)` inside the excess/harvest
-  window (`x` = excess timing, all-2020 by default or graded over N years;
-  `h(t) = f(t) × D_b(t)`), and baseline *rates* (`D_c = A_c × qx`) after the
-  window — identical when feasible, graceful when capped. Multiple
+  window (`h(t) = f(t) × D_b(t)`), and baseline *rates* (`D_c = A_c × qx`)
+  after the window — identical when feasible, graceful when capped. The
+  window is `max(G, excess_window_end)` for linear/step harvest shapes; for
+  exponential harvest there is no window (no hard cutoff, so `h(t)`/`x(t)`
+  just decay toward zero and the raw formula is used throughout). Multiple
   `= (D_c/A_c) / (D_b/A_b)`: spikes to 1+E in 2020, dips < 1, returns to
-  exactly 1.0 after the horizon.
+  exactly 1.0 after the horizon for linear/step (only approaches 1.0 for
+  exponential, which has no hard horizon).
 - **Valuation** at year V (default 2025): LE for those alive at V,
   `LE = Σ_k A(tv+k)/A(tv)`, baseline vs COVID path; the LE gain, equivalent
   flat multiplier (bisection on the improved baseline from V), and

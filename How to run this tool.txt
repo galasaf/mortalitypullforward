@@ -142,8 +142,9 @@ headline excess number suggests.
 
 The tool then SOLVES the one unknown: the share of
 2021's deaths that were pulled into 2020 (shown in the
-first green box), fading to zero in a straight line over
-the "Harvest grade-out" years.
+first green box). There are two SEPARATE toggles for how
+this all grades away over time — one for the pullforward
+(repayment) side, one for the excess (spike) side.
 
 WHAT TO SET (left pane, "COVID excess calibration"):
 
@@ -151,20 +152,37 @@ WHAT TO SET (left pane, "COVID excess calibration"):
     this year. The LE gain and the table show the
     remaining effect for people still alive at this year.
 
-  - "Harvest grade-out": how many years of future deaths
-    COVID reached into. 7 is a reasonable start.
+  - "How the pullforward grades away": three buttons.
+      Linear (default) — the solved 2021 share fades in a
+      straight line to zero at the "Grade-out horizon"
+      (7 years is a reasonable start).
+      Step — the FULL solved share applies to every year
+      inside the horizon, then drops to zero.
+      Exponential — fades at a chosen decay rate and never
+      fully reaches zero (a "fat tail"); there is no
+      horizon input for this one, just the decay rate.
 
   - "Cumulative excess by age band": the excess for every
     5-year age group. They start at 50%; edit any band, or
     type a number next to "Set all to (%)" and click
     Apply.
 
-  - "Grade the excess over multiple years" (optional):
-    instead of dumping the whole excess in 2020, spreads
-    the same total over several years, fading to zero
-    (e.g. 50% over 3 years = 25% / 16.7% / 8.3%). This
-    only re-times the spike in the charts; the totals and
-    the solved pullforward do not change.
+  - "How the excess is timed across years": three buttons,
+    completely independent of the pullforward toggle above
+    — this only controls WHEN the excess deaths happened,
+    not how they get repaid.
+      All in 2020 (default) — the whole excess lands in a
+      single year.
+      Linear fade — spreads the same total over several
+      years, fading to zero (e.g. 50% over 3 years = 25% /
+      16.7% / 8.3%).
+      Empirical — a preset that matches the actual COVID
+      pattern: 2020 and 2021 about equally high (2021 a
+      little lower), roughly half that level in 2022, a
+      muted 2023, and almost nothing left by 2024.
+    Changing this only re-times the spike in the charts;
+    the totals and the solved pullforward share do not
+    change.
 
 WHAT YOU GET:
 
@@ -186,9 +204,10 @@ WHAT YOU GET:
   - The all-cohorts table (ages there are ages IN 2020).
 
 If a warning saying "Infeasible" appears, the excess you
-typed is larger than ALL the deaths available within the
-grade-out horizon — lengthen the horizon or lower the
-excess for that group.
+typed is larger than ALL the deaths available to harvest
+under the chosen shape — lengthen the horizon (or use a
+slower decay rate for Exponential) or lower the excess for
+that group.
 
 The Python twin of this mode is excess.py — the sidebar
 "Run it in the codebase" box always shows the exact

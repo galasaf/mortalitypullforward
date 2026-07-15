@@ -3,11 +3,12 @@ excess.py - COVID excess-mortality CALIBRATION mode.
 
 Instead of assuming the pullforward directly, start from the cumulative
 excess mortality each age group suffered from COVID (as a % of one normal
-year's deaths for that group, in 5-year bands), attribute it all to 2020,
-and let the model SOLVE the pullforward: the share of 2021's deaths that
-were pulled into 2020, grading linearly to zero over the grade-out horizon.
-Standing at the valuation year (default 2025), it reports the remaining
-mortality dip and the life-expectancy gain for people still alive.
+year's deaths for that group, in 5-year bands), attribute it to 2020 (or
+spread it over a few years), and let the model SOLVE the pullforward: the
+share of 2021's deaths that were pulled into 2020, grading away over time
+under a shape you choose. Standing at the valuation year (default 2025), it
+reports the remaining mortality dip and the life-expectancy gain for people
+still alive.
 
 Run `python excess.py` (no arguments) for these worked examples.
 
@@ -15,12 +16,26 @@ Run `python excess.py` (no arguments) for these worked examples.
 BASIC RUNS
 ----------------------------------------------------------------------------
   python excess.py --run                          # all defaults: 50% excess,
-                                                  #   7-yr grade-out, valued 2025
+                                                  #   7-yr linear grade-out, 2025
   python excess.py --excess-all 60 --grade-out 10
   python excess.py --valuation-year 2027 --age 65 --sex male
-  python excess.py --grade-excess 3               # spread the 2020 excess spike
-                                                  #   linearly over 3 years (visual
-                                                  #   timing; totals unchanged)
+
+----------------------------------------------------------------------------
+HOW THE PULLFORWARD (HARVEST) GRADES AWAY
+----------------------------------------------------------------------------
+  python excess.py --pullforward-shape linear        # ramps to zero at --grade-out (default)
+  python excess.py --pullforward-shape step           # full effect inside --grade-out, then zero
+  python excess.py --pullforward-shape exponential --decay-rate 0.3   # fat tail, no cutoff
+
+----------------------------------------------------------------------------
+HOW THE EXCESS ITSELF IS TIMED ACROSS YEARS
+----------------------------------------------------------------------------
+  python excess.py --excess-shape instant              # all in 2020 (default)
+  python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
+  python excess.py --excess-shape empirical             # matches the actual COVID pattern:
+                                                        #   2020/2021 near peak (2021 a bit
+                                                        #   lower), ~half that in 2022, a
+                                                        #   muted 2023, almost gone by 2024
 
 ----------------------------------------------------------------------------
 PER-BAND EXCESS (21 five-year bands: 0-4, 5-9, ..., 95-99, 100+)
@@ -47,10 +62,12 @@ Notes
   pulled forward from 2023 would have happened at age 63. Mortality rises
   with age, so a fixed number of harvested deaths is a shrinking share of
   each later year's deaths — the solved pullforward percentages are much
-  smaller than the headline excess percentage.
-* The calibration treats all excess deaths as happening in 2020 and years
-  2021+ as pure harvesting (no new excess). --grade-excess only re-times the
-  excess deaths for the trajectory; the harvesting solve is unchanged.
+  smaller than the headline excess percentage. This holds for every
+  --pullforward-shape: `peak` is always "share of 2021's deaths pulled into
+  2020", since every shape is normalized to 1.0 at t=1.
+* --excess-shape only re-times WHEN the excess deaths happened (the totals
+  and the solved pullforward peak are unchanged); --pullforward-shape governs
+  how the harvesting (the repayment) grades away over time.
 """
 from __future__ import annotations
 
@@ -70,6 +87,9 @@ from mortality_model.excess import (
     mortality_trajectory,
     TRAJECTORY_START,
     TRAJECTORY_END,
+    PULLFORWARD_SHAPES,
+    EXCESS_SHAPES,
+    DEFAULT_DECAY_RATE,
 )
 
 DEFAULT_AGES = [40, 50, 55, 60, 65, 70, 75, 80]  # ages IN 2020
@@ -103,14 +123,24 @@ def build_scale(args):
 
 def describe(args, excess_bands) -> str:
     uniform = len(set(excess_bands)) == 1
+    if args.pullforward_shape == "exponential":
+        harvest_desc = f"exponential decay, rate {args.decay_rate} (no hard cutoff)"
+    elif args.pullforward_shape == "step":
+        harvest_desc = f"step: full effect for {args.grade_out} years, then zero"
+    else:
+        harvest_desc = f"linear: ramps to zero over {args.grade_out} years"
+    if args.excess_shape == "linear":
+        excess_desc = f"graded linearly to zero over {args.excess_spread} years"
+    elif args.excess_shape == "empirical":
+        excess_desc = "empirical shape (2020/2021 near peak, ~half in 2022, muted 2023, ~gone by 2024)"
+    else:
+        excess_desc = "all in 2020"
     lines = [
         f"  Cumulative excess : "
         + (f"{excess_bands[0] * 100:.0f}% of one year's deaths, all ages"
            if uniform else "per-band (see --excess)"),
-        f"  Grade-out horizon : {args.grade_out} years (linear to zero, from 2021)",
-        f"  Excess timing     : "
-        + (f"graded linearly to zero over {args.grade_excess} years"
-           if args.grade_excess and args.grade_excess >= 2 else "all in 2020"),
+        f"  Harvest shape     : {harvest_desc}",
+        f"  Excess timing     : {excess_desc}",
         f"  Valuation year    : {args.valuation_year}",
         f"  Improvement       : "
         + ("OFF (static 2019 table)" if args.no_improvement
@@ -135,12 +165,25 @@ def main():
                    help=f"{N_BANDS} comma-separated percentages, one per 5-year band "
                         "(0-4, 5-9, ..., 95-99, 100+)")
     p.add_argument("--grade-out", type=int, default=7, dest="grade_out",
-                   help="years over which the harvesting grades linearly to zero (default 7)")
+                   help="years over which the harvesting grades away, for --pullforward-shape "
+                        "linear/step (default 7; unused for exponential)")
+    p.add_argument("--pullforward-shape", choices=PULLFORWARD_SHAPES, default="linear",
+                   dest="pullforward_shape",
+                   help="how the harvest (repayment) grades away: linear (default), "
+                        "step, or exponential")
+    p.add_argument("--decay-rate", type=float, default=DEFAULT_DECAY_RATE, dest="decay_rate",
+                   help=f"exponential decay rate, only used with --pullforward-shape "
+                        f"exponential (default {DEFAULT_DECAY_RATE})")
     p.add_argument("--valuation-year", type=int, default=2025, dest="valuation_year",
                    help="standing point for LE gain / remaining multiples (default 2025)")
-    p.add_argument("--grade-excess", type=int, default=0, dest="grade_excess",
-                   help="spread the 2020 excess spike linearly to zero over N years "
-                        "(0 = all in 2020; affects timing only, totals unchanged)")
+    p.add_argument("--excess-shape", choices=EXCESS_SHAPES, default="instant",
+                   dest="excess_shape",
+                   help="how the 2020 excess itself is timed: instant (default, all in "
+                        "2020), linear (fades over --excess-spread years), or empirical "
+                        "(matches the actual 2020-2024 COVID pattern)")
+    p.add_argument("--excess-spread", type=int, default=3, dest="excess_spread",
+                   help="years over which the excess fades to zero, for --excess-shape "
+                        "linear (default 3)")
     p.add_argument("--age", type=int, help="focus on one age IN 2020")
     p.add_argument("--sex", choices=["male", "female"])
     p.add_argument("--trajectory-age", type=int, dest="trajectory_age",
@@ -158,8 +201,14 @@ def main():
         return
     args = p.parse_args()
 
-    if args.grade_out < 1:
-        print("--grade-out must be at least 1 year.")
+    if args.pullforward_shape != "exponential" and args.grade_out < 1:
+        print("--grade-out must be at least 1 year (for linear/step --pullforward-shape).")
+        sys.exit(1)
+    if args.pullforward_shape == "exponential" and args.decay_rate <= 0:
+        print("--decay-rate must be positive.")
+        sys.exit(1)
+    if args.excess_shape == "linear" and args.excess_spread < 2:
+        print("--excess-spread must be at least 2 years (for --excess-shape linear).")
         sys.exit(1)
 
     excess_bands = parse_excess(args)
@@ -179,7 +228,8 @@ def main():
         for age in ages:
             results.append(run_excess_cohort(
                 age, sex, table, scale, excess_bands, args.grade_out,
-                args.valuation_year, args.grade_excess,
+                args.valuation_year, args.pullforward_shape, args.decay_rate,
+                args.excess_shape, args.excess_spread,
             ))
 
     rows = []
@@ -210,9 +260,11 @@ def main():
     print("  Alive vs baseline (%): population still alive at the valuation year,")
     print("  relative to the no-COVID baseline (the not-yet-harvested deficit).")
     if any_infeasible:
+        fix = ("increase --decay-rate's inverse (use a smaller --decay-rate for a fatter tail)"
+               if args.pullforward_shape == "exponential" else "lengthen --grade-out")
         print("\n  WARNING - INFEASIBLE rows: the assumed excess exceeds ALL deaths available")
-        print("  inside the grade-out horizon (the solved pullforward would exceed 100% of")
-        print("  2021's deaths). The pullforward was capped at 100%; lengthen --grade-out")
+        print("  to harvest under this shape (the solved pullforward would exceed 100% of")
+        print(f"  2021's deaths). The pullforward was capped at 100%; {fix}")
         print("  or lower the excess for those ages.")
 
     # Trajectory table
@@ -222,7 +274,8 @@ def main():
     for sex in sexes:
         traj = mortality_trajectory(
             traj_age, sex, table, scale, excess_bands, args.grade_out,
-            args.grade_excess, args.valuation_year,
+            args.valuation_year, args.pullforward_shape, args.decay_rate,
+            args.excess_shape, args.excess_spread,
         )
         trajectories.append(traj)
         print(f"\n=== Mortality trajectory at age {traj_age}, {sex} "

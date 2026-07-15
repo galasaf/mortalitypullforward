@@ -323,11 +323,33 @@
           <p class="hint">All excess deaths are attributed to 2020; harvesting starts in 2021. Standing at this year, the tiles and table show the remaining mortality dip and the LE gain for people still alive.</p>
 
           <details class="sub" open>
-            <summary>Harvest grade-out <span class="readout" id="ex-grade-out">7 yrs</span></summary>
+            <summary>How the pullforward grades away</summary>
             <div class="sub-body">
-              <input type="range" id="ex-grade" min="1" max="30" step="1" value="7"
-                     aria-label="Years over which the harvesting grades linearly to zero">
-              <p class="hint">The pulled-forward deaths would all have happened within this many years after 2020. The solved pullforward share grades from its 2021 peak linearly to zero over this horizon.</p>
+              <div class="seg" role="group" aria-label="Harvest (pullforward) shape">
+                <button type="button" id="ex-pf-linear" aria-pressed="true">Linear</button>
+                <button type="button" id="ex-pf-step" aria-pressed="false">Step</button>
+                <button type="button" id="ex-pf-exp" aria-pressed="false">Exponential</button>
+              </div>
+              <p class="hint" id="ex-pf-hint">Linear: the solved 2021 peak ramps down to zero at the grade-out horizon.</p>
+
+              <div id="ex-grade-row">
+                <div class="ctl-row" style="margin-top:8px">
+                  <label for="ex-grade" style="font-size:13px">Grade-out horizon</label>
+                  <span class="readout" id="ex-grade-out">7 yrs</span>
+                </div>
+                <input type="range" id="ex-grade" min="1" max="30" step="1" value="7"
+                       aria-label="Years over which the harvesting grades away">
+                <p class="hint" id="ex-grade-hint">The pulled-forward deaths would all have happened within this many years after 2020.</p>
+              </div>
+              <div class="hidden" id="ex-decay-row">
+                <div class="ctl-row" style="margin-top:8px">
+                  <label for="ex-decay" style="font-size:13px">Decay rate</label>
+                  <span class="readout" id="ex-decay-out">0.30</span>
+                </div>
+                <input type="range" id="ex-decay" min="0.05" max="1" step="0.05" value="0.30"
+                       aria-label="Exponential decay rate for the harvest">
+                <p class="hint" id="ex-decay-hint">Fat tail, no hard cutoff. Effect halves every ~2.3 years.</p>
+              </div>
             </div>
           </details>
 
@@ -344,15 +366,23 @@
             </div>
           </details>
 
-          <div class="ctl-row" style="margin-top:10px">
-            <label for="ex-spread" style="font-size:13px">Grade the excess over multiple years</label>
-            <input type="checkbox" id="ex-spread">
-          </div>
-          <div class="ctl-row hidden" id="ex-spread-years-row">
-            <label for="ex-spread-years" style="font-size:13px">Over how many years</label>
-            <input type="number" id="ex-spread-years" min="2" max="10" step="1" value="3">
-          </div>
-          <p class="hint" id="ex-spread-hint">Off: the whole excess lands in 2020. On: the same total is spread from 2020 linearly down to zero over N years (e.g. 50% over 3 years = 25% / 16.7% / 8.3%) &mdash; the charts then show the excess and the harvesting overlapping.</p>
+          <details class="sub" open>
+            <summary>How the excess is timed across years</summary>
+            <div class="sub-body">
+              <div class="seg" role="group" aria-label="Excess timing shape">
+                <button type="button" id="ex-exc-instant" aria-pressed="true">All in 2020</button>
+                <button type="button" id="ex-exc-linear" aria-pressed="false">Linear fade</button>
+                <button type="button" id="ex-exc-empirical" aria-pressed="false">Empirical</button>
+              </div>
+              <p class="hint" id="ex-exc-hint">All in 2020: the entire excess lands in a single year.</p>
+              <div class="hidden" id="ex-spread-row">
+                <div class="ctl-row" style="margin-top:8px">
+                  <label for="ex-spread-years" style="font-size:13px">Over how many years</label>
+                  <input type="number" id="ex-spread-years" min="2" max="10" step="1" value="3">
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
       </details>
 
@@ -600,26 +630,37 @@
              &mdash; and they are missing from the cohort <em>as it ages</em>: a 60-year-old&rsquo;s death pulled
              forward from 2023 would have happened at age 63, in 2023. Because mortality rises with age, a fixed
              number of borrowed deaths is a shrinking share of each later year&rsquo;s (larger) death count
-             &mdash; the aging of the cohort automatically mutes the future effect. Given the excess and a linear
-             grade-out over G years, the model <em>solves</em> the one remaining unknown &mdash; the share of
-             2021&rsquo;s deaths pulled into 2020:</p>
-          <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t=1..G</sub> peak &times; (1 &minus; (t&minus;1)/G) &times; D<sub>baseline</sub>(t)</div>
+             &mdash; the aging of the cohort automatically mutes the future effect. Given the excess and a harvest
+             shape, the model <em>solves</em> the one remaining unknown &mdash; the share of 2021&rsquo;s deaths
+             pulled into 2020 (&ldquo;peak&rdquo;, always normalized so every shape equals 1.0 at t=1):</p>
+          <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t&ge;1</sub> peak &times; w(t) &times; D<sub>baseline</sub>(t)</div>
+          <p><strong>How the pullforward grades away</strong> (w(t) above) is a second toggle, independent of the
+             direct-pullforward mode&rsquo;s own shape setting: <em>Linear</em> ramps the peak down to zero at the
+             grade-out horizon; <em>Step</em> applies the full peak to every year inside the horizon, then drops
+             to zero; <em>Exponential</em> decays the peak at a chosen rate with no hard cutoff (a fat tail, like
+             the direct mode&rsquo;s exponential shape). <strong>How the excess itself is timed</strong> across
+             years is a separate, independent toggle: <em>All in 2020</em> (the default) puts the whole cumulative
+             excess in a single year; <em>Linear fade</em> spreads it from 2020 down to zero over a chosen number
+             of years; <em>Empirical</em> is a preset matching the actual COVID pattern &mdash; 2020 and 2021 near
+             the same peak (2021 a little lower), about half that level in 2022, a muted tail in 2023, and almost
+             nothing left by 2024. Changing how the excess is timed only re-times <em>when</em> the deaths
+             happened (the total X and the solved peak are unaffected); changing the harvest shape changes how
+             the <em>repayment</em> grades away.</p>
           <p>Bookkeeping is in absolute deaths per person alive at the start of 2020. The COVID path adds the
-             excess in 2020 and subtracts the harvested deaths after; dividing by the surviving population gives
-             the with-COVID death rates, the mortality multiple (spike to 1+E in 2020, dip below 1.0, back to
-             exactly 1.0 after the horizon), and &mdash; standing at the valuation year &mdash; the remaining LE
-             gain for people still alive. The trajectory chart anchors the SSA 2019 table at calendar 2019 and
-             uses the improvement scale both forward (to 2035) and backward (to 2010). If the assumed excess
-             exceeds all deaths available inside the horizon, the solve is infeasible: the pullforward is capped
-             at 100% and a warning is shown. The optional excess grading spreads the same total excess linearly
-             to zero over a few years instead of dumping it all in 2020 &mdash; it re-times the spike (the charts
-             then show excess and harvesting overlapping in 2021&ndash;2022) without changing the totals. The
-             Python twin of this mode is <code>excess.py</code>.</p>
+             excess (under its chosen timing) and subtracts the harvested deaths (under its chosen shape);
+             dividing by the surviving population gives the with-COVID death rates and the mortality multiple
+             (spike to 1+E in 2020, dip below 1.0, back to exactly 1.0 once a linear/step horizon has passed --
+             exponential only approaches 1.0, since it has no hard cutoff), and &mdash; standing at the valuation
+             year &mdash; the remaining LE gain for people still alive. The trajectory chart anchors the SSA 2019
+             table at calendar 2019 and uses the improvement scale both forward (to 2035) and backward (to 2010).
+             If the assumed excess exceeds all deaths available to harvest under the chosen shape, the solve is
+             infeasible: the pullforward is capped at 100% and a warning is shown. The Python twin of this mode is
+             <code>excess.py</code>.</p>
 
           <h3>Reading the outputs</h3>
           <ul>
             <li>The effect is <strong>largest for older cohorts</strong>: more of their near-term deaths fell inside the pullforward window.</li>
-            <li>The multiple <strong>returns to 1.0</strong> at the grade-out horizon &mdash; the model assumes no lasting health advantage, only selection.</li>
+            <li>For linear/step harvest shapes, the multiple <strong>returns to 1.0</strong> once the grade-out horizon (and any later-ending excess timing) has passed &mdash; the model assumes no lasting health advantage, only selection. Exponential harvest has no hard horizon, so it only approaches 1.0.</li>
             <li>The math mirrors the Python code in <code>mortality_model/</code>. Each cohort depends only on its own segment&rsquo;s inputs, so the command in the sidebar reproduces the focus cohort exactly; run it once per segment (changing <code>--age</code>/<code>--sex</code> and the values) to cover all segments.</li>
           </ul>
         </div>
@@ -881,8 +922,45 @@ function runCohort(startingAge, sex, params, scale) {
 const TABLE_BASE_YEAR = 2019;   // calendar year of the SSA 2019 base table
 const COVID_YEAR = 2020;        // all excess deaths are attributed to this year
 const N_BANDS = 21;             // 5-year bands: 0-4, ..., 95-99, 100+
+const DEFAULT_DECAY_RATE = 0.30;
+// Relative excess "level" by year, 2020..2024 (index 0..4); zero from 2025 on.
+// Matches the empirical COVID pattern: 2020/2021 near peak (2021 slightly
+// lower), ~half that level in 2022, a muted 2023, almost gone by 2024.
+const EMPIRICAL_EXCESS_WEIGHTS = [1.00, 0.90, 0.50, 0.20, 0.05];
 const bandIndex = (age) => Math.min(Math.floor(Math.max(age, 0) / 5), N_BANDS - 1);
 const bandLabel = (i) => (i === N_BANDS - 1 ? "100+" : (5 * i) + "–" + (5 * i + 4));
+
+// w(t): un-scaled harvest weight (1-indexed calendar offset from 2020).
+// Always normalized so w(1) === 1, so the solved peak is always exactly
+// "share of 2021's deaths pulled into 2020" regardless of shape.
+function harvestWeight(t, shape, gradeOutYears, decayRate) {
+  if (t <= 0) return 0;
+  if (shape === "step") return (gradeOutYears > 0 && t <= gradeOutYears) ? 1 : 0;
+  if (shape === "exponential") return Math.exp(-decayRate * (t - 1));
+  if (gradeOutYears <= 0) return 0;
+  return Math.max(0, 1 - (t - 1) / gradeOutYears);   // linear (default)
+}
+// x(t): absolute excess deaths landing in projection year t (0-indexed, t=0 = 2020).
+function excessTiming(X, shape, spreadYears, n) {
+  const x = new Float64Array(n);
+  if (shape === "linear" && spreadYears >= 2) {
+    const gx = Math.floor(spreadYears);
+    const wsum = gx * (gx + 1) / 2;
+    for (let j = 0; j < Math.min(gx, n); j++) x[j] = X * (gx - j) / wsum;
+  } else if (shape === "empirical") {
+    const w = EMPIRICAL_EXCESS_WEIGHTS, wsum = w.reduce((a, b) => a + b, 0);
+    for (let j = 0; j < Math.min(w.length, n); j++) x[j] = X * w[j] / wsum;
+  } else {
+    x[0] = X;   // "instant"
+  }
+  return x;
+}
+// Last t-index (0-indexed) with potentially nonzero excess timing.
+function excessWindowEnd(shape, spreadYears) {
+  if (shape === "linear" && spreadYears >= 2) return Math.floor(spreadYears) - 1;
+  if (shape === "empirical") return EMPIRICAL_EXCESS_WEIGHTS.length - 1;
+  return 0;
+}
 
 // Cumulative improvement factor taking the 2019 base table to `year`.
 // Years after 2019 compound (1 - rate); years before 2019 divide it out.
@@ -907,7 +985,8 @@ function calendarQx(age, year, sex, scale) {
 
 // Full bookkeeping for one cohort aged `age2020` in 2020; index t = calendar
 // year 2020 + t. All quantities are per person alive at the start of 2020.
-function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valuationYear, gradeExcessYears) {
+function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valuationYear,
+                          pfShape, decayRate, excShape, spreadYears) {
   const n = MAX_AGE - age2020 + 1;
   const q = new Float64Array(n);
   for (let t = 0; t < n; t++) q[t] = calendarQx(age2020 + t, COVID_YEAR + t, sex, scale);
@@ -920,10 +999,11 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
   const E = excessByBand[bandIndex(age2020)];
   const X = E * q[0];
 
-  // Solve the peak so harvested deaths (2021+) equal the excess
+  // Solve the peak so harvested deaths (2021+) equal the excess, under the
+  // chosen harvest shape (w(1) is always normalized to 1.0).
   const G = gradeOutYears;
   const w = new Float64Array(n);
-  for (let t = 1; t < n; t++) if (G > 0 && t <= G) w[t] = 1 - (t - 1) / G;
+  for (let t = 0; t < n; t++) w[t] = harvestWeight(t, pfShape, G, decayRate);
   let denom = 0;
   for (let t = 0; t < n; t++) denom += w[t] * Db[t];
   const peak = denom > 0 ? X / denom : Infinity;
@@ -934,18 +1014,17 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
   for (let t = 0; t < n; t++) harvested += h[t];
   const shortfall = X - harvested;   // > 0 only when infeasible (f capped at 100%)
 
-  // Timing of the excess deaths: all in 2020, or graded linearly to zero
-  const x = new Float64Array(n);
-  const gx = Math.floor(gradeExcessYears || 0);
-  if (gx >= 2) {
-    const wsum = gx * (gx + 1) / 2;
-    for (let j = 0; j < Math.min(gx, n); j++) x[j] = X * (gx - j) / wsum;
-  } else x[0] = X;
+  // Timing of the excess deaths, under the chosen excess-timing shape.
+  const x = excessTiming(X, excShape, spreadYears, n);
 
   // COVID path: absolute-death bookkeeping inside the excess/harvest window,
   // baseline RATES after it (identical when the harvest fully repaid the
-  // excess; the graceful behavior when it could not).
-  const winEnd = Math.max(G, gx - 1);
+  // excess; the graceful behavior when it could not). Exponential harvest
+  // has no hard horizon, so it never reverts -- h(t)/x(t) just decay toward
+  // (numerically indistinguishable from) zero.
+  const winEnd = (pfShape === "linear" || pfShape === "step")
+    ? Math.max(G, excessWindowEnd(excShape, spreadYears))
+    : n;   // sentinel: "t > winEnd" below never fires
   const Ac = new Float64Array(n + 1), Dc = new Float64Array(n);
   Ac[0] = 1;
   for (let t = 0; t < n; t++) {
@@ -980,7 +1059,8 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
 
 // Period mortality at a FIXED age across calendar years: baseline vs COVID.
 // The COVID rate for (age, 2020+k) comes from the cohort that was age-k in 2020.
-function mortalityTrajectory(age, sex, scale, excessByBand, gradeOutYears, gradeExcessYears, valuationYear, yearStart, yearEnd, cache) {
+function mortalityTrajectory(age, sex, scale, excessByBand, gradeOutYears, valuationYear,
+                              pfShape, decayRate, excShape, spreadYears, yearStart, yearEnd, cache) {
   const years = [], base = [], covid = [];
   cache = cache || {};
   for (let y = yearStart; y <= yearEnd; y++) {
@@ -990,7 +1070,8 @@ function mortalityTrajectory(age, sex, scale, excessByBand, gradeOutYears, grade
     const k = y - COVID_YEAR, c = age - k;
     if (k < 0 || c < 0 || age > MAX_AGE) { covid.push(b); continue; }
     const key = c + "|" + sex;
-    if (!cache[key]) cache[key] = runExcessCohort(c, sex, scale, excessByBand, gradeOutYears, valuationYear, gradeExcessYears);
+    if (!cache[key]) cache[key] = runExcessCohort(c, sex, scale, excessByBand, gradeOutYears,
+                                                    valuationYear, pfShape, decayRate, excShape, spreadYears);
     const r = cache[key];
     covid.push(k < r.n ? r.qc[k] : NaN);
   }
@@ -1079,8 +1160,9 @@ const state = {
   ex: {
     bandsPct: new Array(N_BANDS).fill(50),  // cumulative excess per 5-yr band, % of one year's deaths
     gradeOut: 7,
+    pfShape: "linear", decayRate: DEFAULT_DECAY_RATE,   // how the harvest grades away
     valuationYear: 2025,
-    spread: false, spreadYears: 3,          // grade the excess over multiple years
+    excShape: "instant", spreadYears: 3,    // how the excess itself is timed across years
   },
 };
 function applyPreset(key) {
@@ -1416,11 +1498,11 @@ function renderExcess() {
   const scale = activeScale();
   const ex = state.ex;
   const bands = ex.bandsPct.map((v) => v / 100);
-  const gx = ex.spread ? ex.spreadYears : 0;
   const V = ex.valuationYear;
   const sexLabel = state.focusSex === "male" ? "Male" : "Female";
   const cache = {};
-  const r = runExcessCohort(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, V, gx);
+  const r = runExcessCohort(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, V,
+                            ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears);
 
   // Tiles
   $("ex-tile-peak").textContent = Number.isFinite(r.peak) ? (r.peak * 100).toFixed(1) + "%" : "–";
@@ -1442,7 +1524,8 @@ function renderExcess() {
   $("ex-tile-alive").textContent = r.valid ? (r.aliveVsBaseline * 100).toFixed(2) + "%" : "–";
 
   // Chart 1: trajectory at the focus age, 2010–2035
-  const traj = mortalityTrajectory(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, gx, V, 2010, 2035, cache);
+  const traj = mortalityTrajectory(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, V,
+                                    ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears, 2010, 2035, cache);
   makeChart($("chart-traj"), {
     xs: traj.years,
     series: [
@@ -1463,8 +1546,9 @@ function renderExcess() {
     `<span><span class="chip" style="background:${C.pullfwd}"></span>With COVID excess + harvesting</span>`;
 
   // Chart 2: solved f(t) by calendar year (focus cohort)
+  const pfHorizon = ex.pfShape === "exponential" ? Math.min(40, r.n - 1) : ex.gradeOut;
   const fYears = [], fVals = [];
-  for (let t = 1; t <= Math.min(ex.gradeOut + 1, r.n - 1); t++) { fYears.push(COVID_YEAR + t); fVals.push(r.f[t]); }
+  for (let t = 1; t <= Math.min(pfHorizon + 1, r.n - 1); t++) { fYears.push(COVID_YEAR + t); fVals.push(r.f[t]); }
   makeChart($("chart-fcal"), {
     xs: fYears,
     series: [{ name: "Pulled into 2020", color: C.pullfwd, ys: fVals, area: true }],
@@ -1474,13 +1558,19 @@ function renderExcess() {
     xLabel: "Calendar year",
     ariaLabel: "Solved pullforward share by calendar year",
   });
+  const pfShapeDesc = ex.pfShape === "step"
+    ? `the full 2021 peak applies to every year up to ${ex.gradeOut} years out, then drops to zero`
+    : ex.pfShape === "exponential"
+      ? `the 2021 peak decays exponentially (rate ${ex.decayRate}), with no hard cutoff`
+      : `grades linearly from the 2021 peak to zero over ${ex.gradeOut} years`;
   $("ex-f-sub").innerHTML = (r.infeasible
-    ? `<span class="warnline">⚠ Infeasible: the assumed excess exceeds all deaths available within ${ex.gradeOut} years — repaying it would take ${(r.peak * 100).toFixed(0)}% of 2021's deaths. The pullforward was capped at 100% and ${(r.shortfall * 100).toFixed(2)}% of the cohort stays unrepaid; lengthen the grade-out or lower the excess.</span> `
+    ? `<span class="warnline">⚠ Infeasible: the assumed excess exceeds all deaths available to harvest under this shape — repaying it would take ${(r.peak * 100).toFixed(0)}% of 2021's deaths. The pullforward was capped at 100% and ${(r.shortfall * 100).toFixed(2)}% of the cohort stays unrepaid; lengthen the horizon or lower the excess.</span> `
     : "") +
-    `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020): the 2021 peak is solved so the harvested deaths repay the 2020 excess exactly, then grades linearly to zero over ${ex.gradeOut} years. Because the cohort ages into higher mortality, the same borrowed deaths are an ever-smaller share of each year's death count.`;
+    `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020): the 2021 peak is solved so the harvested deaths repay the 2020 excess exactly, then ${pfShapeDesc}. Because the cohort ages into higher mortality, the same borrowed deaths are an ever-smaller share of each year's death count.`;
 
   // Chart 3: mortality multiple by calendar year (focus cohort)
-  const mEnd = Math.min(r.n - 1, Math.max(15, ex.gradeOut + 3, gx + 3));
+  const excEnd = excessWindowEnd(ex.excShape, ex.spreadYears);
+  const mEnd = Math.min(r.n - 1, Math.max(15, pfHorizon + 3, excEnd + 3));
   const mYears = [], mVals = [];
   for (let t = 0; t <= mEnd; t++) { mYears.push(COVID_YEAR + t); mVals.push(r.multiple[t]); }
   makeChart($("chart-multcal"), {
@@ -1503,7 +1593,8 @@ function renderExcess() {
   }
   sexes.forEach((sex, si) => {
     state.tableAges.forEach((age, i) => {
-      const row = runExcessCohort(age, sex, scale, bands, ex.gradeOut, V, gx);
+      const row = runExcessCohort(age, sex, scale, bands, ex.gradeOut, V,
+                                  ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears);
       const isFocus = age === state.focusAge && sex === state.focusSex;
       const cls = [isFocus ? "focus-row" : "", i === 0 && si > 0 ? "sex-break" : ""].join(" ").trim();
       st += `<tr${cls ? ` class="${cls}"` : ""}><td>${sex === "male" ? "Male" : "Female"} ${age}</td>` +
@@ -1529,8 +1620,12 @@ function renderExcess() {
   const uniform = ex.bandsPct.every((v) => v === ex.bandsPct[0]);
   if (uniform) parts.push(`--excess-all ${ex.bandsPct[0]}`);
   else parts.push(`--excess "${ex.bandsPct.join(",")}"`);
-  parts.push(`--grade-out ${ex.gradeOut}`, `--valuation-year ${V}`);
-  if (gx >= 2) parts.push(`--grade-excess ${gx}`);
+  if (ex.pfShape !== "linear") parts.push(`--pullforward-shape ${ex.pfShape}`);
+  if (ex.pfShape === "exponential") parts.push(`--decay-rate ${ex.decayRate}`);
+  else parts.push(`--grade-out ${ex.gradeOut}`);
+  parts.push(`--valuation-year ${V}`);
+  if (ex.excShape !== "instant") parts.push(`--excess-shape ${ex.excShape}`);
+  if (ex.excShape === "linear") parts.push(`--excess-spread ${ex.spreadYears}`);
   parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...imp.flags);
   $("cli-cmd").textContent = parts.join(" ");
   $("cli-note").textContent = "Reproduces the focus cohort and the trajectory at this age; drop --age/--sex for the full table." + imp.note;
@@ -1588,8 +1683,29 @@ function syncControls() {
   $("ex-val").value = state.ex.valuationYear;
   $("ex-grade").value = state.ex.gradeOut;
   $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
-  $("ex-spread").checked = state.ex.spread;
-  $("ex-spread-years-row").classList.toggle("hidden", !state.ex.spread);
+  $("ex-decay").value = state.ex.decayRate;
+  $("ex-decay-out").textContent = state.ex.decayRate.toFixed(2);
+  $("ex-decay-hint").textContent = `Fat tail, no hard cutoff. Effect halves every ~${(Math.LN2 / state.ex.decayRate).toFixed(1)} years.`;
+  const exPfUsesGradeOut = state.ex.pfShape === "linear" || state.ex.pfShape === "step";
+  $("ex-pf-linear").setAttribute("aria-pressed", state.ex.pfShape === "linear");
+  $("ex-pf-step").setAttribute("aria-pressed", state.ex.pfShape === "step");
+  $("ex-pf-exp").setAttribute("aria-pressed", state.ex.pfShape === "exponential");
+  $("ex-pf-hint").textContent = state.ex.pfShape === "linear"
+    ? "Linear: the solved 2021 peak ramps down to zero at the grade-out horizon."
+    : state.ex.pfShape === "step"
+      ? "Step: the FULL solved peak applies to every year inside the horizon, then drops to zero."
+      : "Exponential: the solved peak decays but never fully reaches zero.";
+  $("ex-grade-row").classList.toggle("hidden", !exPfUsesGradeOut);
+  $("ex-decay-row").classList.toggle("hidden", exPfUsesGradeOut);
+  $("ex-exc-instant").setAttribute("aria-pressed", state.ex.excShape === "instant");
+  $("ex-exc-linear").setAttribute("aria-pressed", state.ex.excShape === "linear");
+  $("ex-exc-empirical").setAttribute("aria-pressed", state.ex.excShape === "empirical");
+  $("ex-exc-hint").textContent = state.ex.excShape === "instant"
+    ? "All in 2020: the entire excess lands in a single year."
+    : state.ex.excShape === "linear"
+      ? "Linear fade: the excess spreads from 2020, fading linearly to zero over the years below."
+      : "Empirical: 2020 and 2021 near the same peak (2021 a bit lower), about half that level in 2022, a muted 2023, and almost nothing left by 2024.";
+  $("ex-spread-row").classList.toggle("hidden", state.ex.excShape !== "linear");
   $("ex-spread-years").value = state.ex.spreadYears;
 
   // Mortality improvement controls
@@ -1706,11 +1822,16 @@ function init() {
     $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
     render();
   });
-  $("ex-spread").addEventListener("change", (e) => {
-    state.ex.spread = e.target.checked;
-    $("ex-spread-years-row").classList.toggle("hidden", !state.ex.spread);
+  $("ex-decay").addEventListener("input", (e) => {
+    state.ex.decayRate = +e.target.value;
     render();
   });
+  $("ex-pf-linear").addEventListener("click", () => { state.ex.pfShape = "linear"; syncControls(); render(); });
+  $("ex-pf-step").addEventListener("click", () => { state.ex.pfShape = "step"; syncControls(); render(); });
+  $("ex-pf-exp").addEventListener("click", () => { state.ex.pfShape = "exponential"; syncControls(); render(); });
+  $("ex-exc-instant").addEventListener("click", () => { state.ex.excShape = "instant"; syncControls(); render(); });
+  $("ex-exc-linear").addEventListener("click", () => { state.ex.excShape = "linear"; syncControls(); render(); });
+  $("ex-exc-empirical").addEventListener("click", () => { state.ex.excShape = "empirical"; syncControls(); render(); });
   $("ex-spread-years").addEventListener("change", (e) => {
     const v = parseInt(e.target.value, 10);
     if (Number.isFinite(v)) state.ex.spreadYears = Math.max(2, Math.min(10, v));

@@ -15,30 +15,49 @@ would have happened at age 63, not 60). Since mortality rises with age, a
 fixed number of harvested deaths is a shrinking share of each later year's
 deaths — the aging of the cohort automatically mutes the future effect.
 
-Given the excess E and a linear grade-out over G years, the model SOLVES for
+Given the excess E and a pullforward (harvest) shape, the model SOLVES for
 the one remaining unknown: the peak share of next year's (2021's) deaths that
 were pulled into 2020.
 
     excess deaths            harvested deaths
-    E x qx(age, 2020)   =    sum over t=1..G of  peak x (1 - (t-1)/G) x D_b(t)
+    E x qx(age, 2020)   =    sum over t>=1 of  peak x w(t) x D_b(t)
 
-where D_b(t) is the cohort's baseline (no-COVID) unconditional deaths in year
-2020+t. Everything is bookkept in absolute deaths per person alive at the
-start of 2020:
+where w(t) is the chosen HARVEST SHAPE (normalized so w(1) = 1.0, i.e. `peak`
+is always exactly "the share of 2021 deaths pulled into 2020" regardless of
+shape) and D_b(t) is the cohort's baseline (no-COVID) unconditional deaths in
+year 2020+t:
+
+    linear:      w(t) = max(0, 1 - (t-1)/G)              for t = 1..G, else 0
+    step:        w(t) = 1                                for t = 1..G, else 0
+    exponential: w(t) = exp(-decay_rate x (t-1))          for all t >= 1 (no cutoff)
+
+Everything is bookkept in absolute deaths per person alive at the start of
+2020:
 
     baseline:  D_b(t) = A_b(t) x qx(age+t, 2020+t),  A_b(t+1) = A_b(t) - D_b(t)
     COVID:     D_c(t) = D_b(t) + x(t) - h(t),        A_c(t+1) = A_c(t) - D_c(t)
 
-with x(t) the timing of the excess deaths (all in 2020 by default, optionally
-graded linearly to zero over a few years) and h(t) = f(t) x D_b(t) the
-harvested deaths. Period death rates, mortality multiples, and the
-valuation-year life expectancies follow directly:
+with x(t) the TIMING of the excess deaths themselves and h(t) = f(t) x D_b(t)
+the harvested deaths. x(t) has its own shape, independent of the harvest
+shape:
+
+    instant:   all of X lands in 2020 (t=0)
+    linear:    X fades linearly to zero over N years from 2020 (a triangular
+               spread: 2020 gets the most, year N-1 the least)
+    empirical: a preset shape matching the actual 2020-2022 COVID experience —
+               2020 and 2021 near their peak (2021 slightly lower), about half
+               that level in 2022, a muted tail in 2023, almost nothing left
+               by 2024, and zero from 2025 on (EMPIRICAL_EXCESS_WEIGHTS)
+
+Period death rates, mortality multiples, and the valuation-year life
+expectancies follow directly:
 
     q_c(t) = D_c(t) / A_c(t),   multiple(t) = q_c(t) / q_b(t)
     LE at valuation year V = sum over k>=0 of A(tv+k) / A(tv),  tv = V - 2020
 
-The multiple spikes to (1 + E) in 2020, dips below 1.0 while the harvest
-plays out, and returns to exactly 1.0 once the grade-out horizon has passed.
+For linear/step harvest shapes the multiple returns to exactly 1.0 once the
+grade-out horizon (and any later-ending excess timing window) has passed; for
+exponential harvest there is no hard horizon, so it only approaches 1.0.
 
 Calendar anchoring: the base table is SSA 2019, so qx(age, year) applies the
 mortality improvement scale forward from 2019 (and BACKWARD for years before
@@ -63,6 +82,16 @@ N_BANDS = 21             # 5-year bands: 0-4, 5-9, ..., 95-99, 100+
 DEFAULT_EXCESS = 0.50    # cumulative excess as a fraction of one-year mortality
 TRAJECTORY_START = 2010
 TRAJECTORY_END = 2035
+DEFAULT_DECAY_RATE = 0.3
+
+# Relative excess "level" by year, 2020..2024 (index 0..4); zero from 2025 on.
+# Matches the empirical COVID pattern: 2020 and 2021 near their peak (2021
+# slightly lower), about half that level in 2022, a muted tail in 2023,
+# almost nothing left by 2024. Normalized to sum to 1 before scaling by X.
+EMPIRICAL_EXCESS_WEIGHTS = (1.00, 0.90, 0.50, 0.20, 0.05)
+
+PULLFORWARD_SHAPES = ("linear", "step", "exponential")
+EXCESS_SHAPES = ("instant", "linear", "empirical")
 
 
 def band_index(age: int) -> int:
@@ -113,6 +142,57 @@ def calendar_qx(table: pd.DataFrame, age: int, year: int, sex: str,
     return min(1.0, get_qx(table, a, sex) * calendar_factor(scale, a, year, sex))
 
 
+def harvest_weight(t: int, shape: str, grade_out_years: int,
+                   decay_rate: float = DEFAULT_DECAY_RATE) -> float:
+    """
+    w(t): un-scaled harvest weight for projection year t (1-indexed calendar
+    offset from 2020; t <= 0 is never harvested). Always normalized so
+    w(1) == 1.0, so the solved `peak` is always exactly "share of 2021's
+    deaths pulled into 2020" regardless of shape.
+    """
+    if t <= 0:
+        return 0.0
+    if shape == "step":
+        return 1.0 if (grade_out_years > 0 and t <= grade_out_years) else 0.0
+    if shape == "exponential":
+        return math.exp(-decay_rate * (t - 1))
+    # linear (default)
+    if grade_out_years <= 0:
+        return 0.0
+    return max(0.0, 1.0 - (t - 1) / grade_out_years)
+
+
+def excess_timing(X: float, shape: str, spread_years: int, n: int) -> list[float]:
+    """
+    x(t): absolute excess deaths landing in projection year t (0-indexed,
+    t=0 is 2020), for the chosen timing shape. Always sums to X (up to
+    truncation if the cohort's remaining lifetime n is very short).
+    """
+    x = [0.0] * n
+    if shape == "linear" and spread_years and spread_years >= 2:
+        gx = int(spread_years)
+        wsum = gx * (gx + 1) / 2
+        for j in range(min(gx, n)):
+            x[j] = X * (gx - j) / wsum
+    elif shape == "empirical":
+        w = EMPIRICAL_EXCESS_WEIGHTS
+        wsum = sum(w)
+        for j in range(min(len(w), n)):
+            x[j] = X * w[j] / wsum
+    else:  # "instant"
+        x[0] = X
+    return x
+
+
+def excess_window_end(shape: str, spread_years: int) -> int:
+    """Last t-index (0-indexed) with potentially nonzero excess timing."""
+    if shape == "linear" and spread_years and spread_years >= 2:
+        return int(spread_years) - 1
+    if shape == "empirical":
+        return len(EMPIRICAL_EXCESS_WEIGHTS) - 1
+    return 0
+
+
 def _solve_equiv_multiplier(target_le: float, qx_vec: np.ndarray) -> float:
     """Flat qx multiplier on the future baseline that reproduces target_le."""
     lo, hi = 1e-6, 1.0
@@ -138,7 +218,10 @@ def run_excess_cohort(
     excess_by_band: list[float],
     grade_out_years: int,
     valuation_year: int = 2025,
-    grade_excess_years: int = 0,
+    pullforward_shape: str = "linear",
+    decay_rate: float = DEFAULT_DECAY_RATE,
+    excess_shape: str = "instant",
+    excess_spread_years: int = 3,
     max_age: int = 119,
 ) -> dict:
     """
@@ -164,13 +247,10 @@ def run_excess_cohort(
     E = excess_by_band[band_index(age_2020)]
     X = E * q[0]
 
-    # Solve the pullforward peak so harvested deaths (2021+) equal the excess.
-    # Linear grade-out: f(t) = peak x (1 - (t-1)/G) for t = 1..G.
+    # Solve the pullforward peak so harvested deaths (2021+) equal the excess,
+    # under the chosen harvest shape (w(1) is always normalized to 1.0).
     G = grade_out_years
-    w = [0.0] * n
-    for t in range(1, n):
-        if G > 0 and t <= G:
-            w[t] = 1.0 - (t - 1) / G
+    w = [harvest_weight(t, pullforward_shape, G, decay_rate) for t in range(n)]
     denom = 0.0
     for t in range(n):
         denom += w[t] * D_b[t]
@@ -184,22 +264,21 @@ def run_excess_cohort(
         harvested += h[t]
     shortfall = X - harvested  # > 0 only when infeasible (f capped at 100%)
 
-    # Timing of the excess deaths: all in 2020, or graded linearly to zero
-    x = [0.0] * n
-    gx = int(grade_excess_years or 0)
-    if gx >= 2:
-        wsum = gx * (gx + 1) / 2
-        for j in range(min(gx, n)):
-            x[j] = X * (gx - j) / wsum
-    else:
-        x[0] = X
+    # Timing of the excess deaths, under the chosen excess-timing shape.
+    x = excess_timing(X, excess_shape, excess_spread_years, n)
 
     # COVID path. Inside the excess/harvest window, deaths are baseline deaths
     # plus the excess timing minus the harvest (absolute-death bookkeeping).
     # After the window, survivors revert to baseline RATES: identical to the
     # baseline path whenever the harvest fully repaid the excess, and the
-    # graceful behavior when it could not (infeasible inputs).
-    window = max(G, gx - 1)
+    # graceful behavior when it could not (infeasible inputs). Exponential
+    # harvest has no hard horizon, so it never reverts -- the raw formula is
+    # used throughout, and h(t)/x(t) simply decay toward (numerically
+    # indistinguishable from) zero.
+    if pullforward_shape in ("linear", "step"):
+        window = max(G, excess_window_end(excess_shape, excess_spread_years))
+    else:
+        window = n  # sentinel: "elif t > window" below never fires
     A_c = [0.0] * (n + 1)
     D_c = [0.0] * n
     A_c[0] = 1.0
@@ -274,8 +353,11 @@ def mortality_trajectory(
     scale: Optional[ImprovementScale],
     excess_by_band: list[float],
     grade_out_years: int,
-    grade_excess_years: int = 0,
     valuation_year: int = 2025,
+    pullforward_shape: str = "linear",
+    decay_rate: float = DEFAULT_DECAY_RATE,
+    excess_shape: str = "instant",
+    excess_spread_years: int = 3,
     year_start: int = TRAJECTORY_START,
     year_end: int = TRAJECTORY_END,
     max_age: int = 119,
@@ -302,7 +384,8 @@ def mortality_trajectory(
         if key not in cache:
             cache[key] = run_excess_cohort(
                 c, sex, table, scale, excess_by_band, grade_out_years,
-                valuation_year, grade_excess_years, max_age,
+                valuation_year, pullforward_shape, decay_rate,
+                excess_shape, excess_spread_years, max_age,
             )
         r = cache[key]
         covid.append(r["q_covid"][k] if k < r["n"] else float("nan"))
