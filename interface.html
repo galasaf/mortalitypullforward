@@ -1,0 +1,1811 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mortality Pullforward Explorer</title>
+<style>
+  :root {
+    --ground: #F7F8FA;
+    --card: #FFFFFF;
+    --ink: #1C2530;
+    --ink-2: #5A6675;
+    --ink-3: #8B95A3;
+    --line: #E2E6EC;
+    --baseline: #3B66A0;   /* SSA baseline series */
+    --survivor: #0C8A6D;   /* post-COVID survivor series */
+    --pullfwd:  #B0611F;   /* pullforward assumption series */
+    --survivor-soft: #E5F3EF;
+    --pullfwd-soft: #F7ECE2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  header.page { margin-bottom: 20px; }
+  header.page h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header.page p { margin: 0; color: var(--ink-2); max-width: 68ch; }
+
+  .app { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 920px) { .app { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+
+  /* ---------- Controls: independently scrollable pane ---------- */
+  .controls {
+    position: sticky; top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  @media (max-width: 920px) { .controls { position: static; max-height: none; } }
+
+  details.ctl-group { padding: 10px 0; border-top: 1px solid var(--line); }
+  details.ctl-group:first-child { padding-top: 0; border-top: none; }
+  details.ctl-group > summary {
+    cursor: pointer; list-style: none;
+    font-size: 11px; font-weight: 650; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-2);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 2px 0;
+  }
+  details.ctl-group > summary::-webkit-details-marker { display: none; }
+  details.ctl-group > summary::after { content: "\25BE"; color: var(--ink-3); font-size: 12px; }
+  details.ctl-group:not([open]) > summary::after { content: "\25B8"; }
+  details.ctl-group > .grp-body { padding-top: 8px; }
+
+  details.sub { border: 1px solid var(--line); border-radius: 6px; margin-top: 8px; }
+  details.sub > summary {
+    cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    font-size: 11px; font-weight: 650; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--ink-2);
+  }
+  details.sub > summary::-webkit-details-marker { display: none; }
+  details.sub > summary .readout { text-transform: none; letter-spacing: 0; color: var(--ink); }
+  details.sub > .sub-body { padding: 0 10px 10px; }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 650; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-2); margin: 0 0 8px;
+  }
+  .hint { font-size: 12px; color: var(--ink-3); margin: 4px 0 0; }
+  .ctl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .ctl-row + .ctl-row { margin-top: 8px; }
+  .readout { font-variant-numeric: tabular-nums; font-weight: 650; font-size: 13px; white-space: nowrap; }
+
+  select, input[type="number"], input[type="text"] {
+    font: inherit; color: var(--ink);
+    background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 8px;
+  }
+  select { width: 100%; }
+  select:focus-visible, input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--baseline); outline-offset: 1px;
+  }
+  input[type="range"] { width: 100%; accent-color: var(--survivor); margin: 6px 0 0; }
+  input[type="number"] { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    flex: 1; font: inherit; font-size: 13px; padding: 6px 4px; border: none;
+    background: var(--card); color: var(--ink-2); cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; font-weight: 600; }
+
+  .cli {
+    background: #F1F3F6; border: 1px solid var(--line); border-radius: 6px;
+    font-family: Consolas, "Cascadia Mono", Menlo, monospace; font-size: 12px;
+    padding: 10px; margin-top: 8px; word-break: break-all; color: var(--ink);
+  }
+  .cli-note { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+  .copy-btn {
+    font: inherit; font-size: 12px; font-weight: 600; margin-top: 8px;
+    padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  .copy-btn:hover { border-color: var(--ink-3); }
+
+  .seg-badge {
+    display: inline-block; font-size: 11px; font-weight: 650;
+    background: var(--pullfwd-soft); color: var(--pullfwd);
+    border-radius: 4px; padding: 1px 7px; vertical-align: 1px;
+  }
+
+  /* ---------- Excess-calibration band grid ---------- */
+  .bands { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .bands label { font-size: 11px; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+  .bands input[type="number"] { width: 100%; padding: 4px 6px; }
+  .warnline { color: #A33F10; font-weight: 600; }
+
+  /* ---------- Output view bar ---------- */
+  .outview { padding: 14px 18px; }
+  .ov-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .ov-block { min-width: 230px; flex: 1; }
+  .ov-inline { display: flex; align-items: center; gap: 10px; }
+  .ov-inline input[type="range"] { flex: 1; margin: 0; }
+  .checks { display: flex; gap: 14px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+  .checks label { display: flex; gap: 5px; align-items: center; }
+  input.ages-input { width: 100%; font-variant-numeric: tabular-nums; text-align: left; }
+
+  /* ---------- Results ---------- */
+  .results { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  @media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .tile .label { font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-2); }
+  .tile .value { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -0.01em; }
+  .tile .sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .tile.hero { background: var(--survivor-soft); border-color: #BFDFD5; }
+  .tile.hero .value { color: var(--survivor); }
+
+  .chart-card h2 { font-size: 15px; font-weight: 650; margin: 0; }
+  .chart-card .sub { font-size: 12.5px; color: var(--ink-2); margin: 2px 0 10px; }
+  .chart-box { position: relative; }
+  .chart-box svg { display: block; width: 100%; height: auto; }
+  .tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--ink); color: #fff; border-radius: 6px;
+    padding: 7px 10px; font-size: 12px; line-height: 1.45;
+    font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 5;
+  }
+  .tooltip .t-title { font-weight: 650; margin-bottom: 3px; }
+  .tooltip .chip { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 0; font-size: 12.5px; color: var(--ink-2); }
+  .legend .chip { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+  table.summary { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.summary th, table.summary td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+  table.summary th { font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+  table.summary th:first-child, table.summary td:first-child { text-align: left; }
+  table.summary td.delta { color: var(--survivor); font-weight: 650; }
+  table.summary tr.focus-row td { background: var(--survivor-soft); }
+  table.summary tr.sex-break td { border-top: 2px solid var(--line); }
+  .table-scroll { overflow-x: auto; }
+
+  details.explainer { border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  details.explainer > summary {
+    cursor: pointer; padding: 14px 18px; font-weight: 650; font-size: 15px; list-style: none;
+  }
+  details.explainer > summary::-webkit-details-marker { display: none; }
+  details.explainer > summary::before { content: "\25B8 "; color: var(--ink-3); }
+  details.explainer[open] > summary::before { content: "\25BE "; }
+  details.explainer .body { padding: 0 18px 18px; max-width: 76ch; }
+  details.explainer h3 { font-size: 13.5px; margin: 16px 0 4px; }
+  details.explainer p, details.explainer li { color: var(--ink-2); font-size: 13.5px; }
+  .formula {
+    font-family: Consolas, "Cascadia Mono", Menlo, monospace; font-size: 12.5px;
+    background: #F1F3F6; border-radius: 5px; padding: 8px 12px; margin: 6px 0;
+    overflow-x: auto; color: var(--ink);
+  }
+  details.data-table { margin-top: 10px; font-size: 13px; }
+  details.data-table summary { cursor: pointer; color: var(--ink-2); font-size: 12.5px; }
+  details.data-table table { margin-top: 8px; }
+
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: no-preference) {
+    .seg button, .copy-btn { transition: background 0.12s ease, color 0.12s ease; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="page">
+    <h1>Mortality Pullforward Explorer</h1>
+    <p>COVID disproportionately killed people who were already close to dying. This tool lets you set
+       how far into the future those deaths were &ldquo;pulled from,&rdquo; and instantly see what that
+       implies for the life expectancy of the people who survived. Inputs are on the left &mdash;
+       optionally segmented by age band and sex &mdash; and the view controls sit above the results.</p>
+  </header>
+
+  <div class="app">
+    <!-- ================= Inputs (left pane) ================= -->
+    <aside class="controls card" aria-label="Model inputs">
+
+      <details class="ctl-group" open>
+        <summary>Model mode</summary>
+        <div class="grp-body">
+          <div class="seg" role="group" aria-label="Model mode">
+            <button type="button" id="mode-direct" aria-pressed="true">Assume pullforward</button>
+            <button type="button" id="mode-excess" aria-pressed="false">Calibrate from excess</button>
+          </div>
+          <p class="hint" id="mode-hint">Assume the pullforward curve f(t) directly — the original model.</p>
+        </div>
+      </details>
+
+      <details class="ctl-group mode-direct" open>
+        <summary>Scenario preset</summary>
+        <div class="grp-body">
+          <select id="preset" aria-label="Scenario preset"></select>
+          <p class="hint" id="preset-desc"></p>
+        </div>
+      </details>
+
+      <details class="ctl-group mode-direct" open>
+        <summary>Pullforward inputs <span class="seg-badge" id="seg-badge">1 segment</span></summary>
+        <div class="grp-body">
+          <label for="seg-select" class="hint" style="margin:0 0 4px">Editing segment:</label>
+          <select id="seg-select" aria-label="Segment being edited"></select>
+          <p class="hint" id="seg-focus-hint"></p>
+
+          <div class="ctl-row" style="margin-top:10px">
+            <label for="seg-enabled" style="font-size:13px">Pullforward active in this segment</label>
+            <input type="checkbox" id="seg-enabled" checked>
+          </div>
+          <p class="hint">Untick to remove the COVID effect for this segment only &mdash; useful for isolating one group at a time.</p>
+
+          <details class="sub" open>
+            <summary>Shape</summary>
+            <div class="sub-body">
+              <div class="seg" role="group" aria-label="Pullforward shape">
+                <button type="button" id="shape-linear" aria-pressed="true">Linear</button>
+                <button type="button" id="shape-step" aria-pressed="false">Step</button>
+                <button type="button" id="shape-exp" aria-pressed="false">Exponential</button>
+              </div>
+              <p class="hint" id="shape-hint">Linear: effect fades to zero at the grade-out horizon.</p>
+            </div>
+          </details>
+
+          <details class="sub" open>
+            <summary>Peak fraction <span class="readout" id="peak-out">65%</span></summary>
+            <div class="sub-body">
+              <input type="range" id="peak" min="0" max="1" step="0.01" value="0.65"
+                     aria-label="Peak fraction of year-1 deaths pulled into COVID">
+              <p class="hint">Of the people who would have died in the first year after COVID, this share died during COVID instead. Realistic range: 30&ndash;80%. 0% disables the effect for this segment.</p>
+            </div>
+          </details>
+
+          <details class="sub" open id="grp-linear">
+            <summary>Grade-out horizon <span class="readout" id="grade-out-out">7 yrs</span></summary>
+            <div class="sub-body">
+              <input type="range" id="grade-out" min="0" max="100" step="1" value="7"
+                     aria-label="Years until the pullforward effect reaches zero">
+              <p class="hint" id="grade-out-hint">Deaths this many years out (or further) were untouched by COVID. 0 = no pullforward for this segment; beyond ~100 the horizon exceeds the cohorts&rsquo; remaining lifetimes.</p>
+            </div>
+          </details>
+
+          <details class="sub hidden" open id="grp-exp">
+            <summary>Decay rate <span class="readout" id="decay-out">0.30</span></summary>
+            <div class="sub-body">
+              <input type="range" id="decay" min="0.05" max="1" step="0.05" value="0.30"
+                     aria-label="Exponential decay rate">
+              <p class="hint" id="decay-hint">Fat tail, no hard cutoff. Effect halves every ~2.3 years.</p>
+            </div>
+          </details>
+
+          <button type="button" class="copy-btn" id="seg-copy-all">Apply these inputs to all segments</button>
+        </div>
+      </details>
+
+      <details class="ctl-group mode-direct" open>
+        <summary>Segmentation</summary>
+        <div class="grp-body">
+          <div class="ctl-row">
+            <label for="segdef-bysex" style="font-size:13px">Separate inputs by sex</label>
+            <input type="checkbox" id="segdef-bysex">
+          </div>
+          <div class="ctl-row" style="margin-top:8px">
+            <label for="segdef-cutoffs" style="font-size:13px; white-space:nowrap">Age cutoffs</label>
+            <input type="text" id="segdef-cutoffs" class="ages-input" style="width:140px" value="65, 75, 85"
+                   aria-label="Comma-separated age cutoffs defining the segments">
+          </div>
+          <p class="hint">Cutoffs split the ages into bands: e.g. &ldquo;65&rdquo; gives &lt;65 and 65+; &ldquo;65, 75, 85&rdquo; gives &lt;65, 65&ndash;74, 75&ndash;84, 85+. Leave empty for one all-ages segment. Segments are matched on the cohort&rsquo;s age at the end of COVID.</p>
+          <button type="button" class="copy-btn" id="segdef-apply">Rebuild segments</button>
+          <p class="hint">Existing inputs carry over to the new segments where they overlap. The segments then appear in the &ldquo;Editing segment&rdquo; list above.</p>
+        </div>
+      </details>
+
+      <details class="ctl-group mode-excess hidden" open>
+        <summary>COVID excess calibration</summary>
+        <div class="grp-body">
+          <div class="ctl-row">
+            <label for="ex-val" style="font-size:13px">Valuation year</label>
+            <input type="number" id="ex-val" min="2021" max="2039" step="1" value="2025"
+                   aria-label="Valuation year: standing point for the remaining effect">
+          </div>
+          <p class="hint">All excess deaths are attributed to 2020; harvesting starts in 2021. Standing at this year, the tiles and table show the remaining mortality dip and the LE gain for people still alive.</p>
+
+          <details class="sub" open>
+            <summary>Harvest grade-out <span class="readout" id="ex-grade-out">7 yrs</span></summary>
+            <div class="sub-body">
+              <input type="range" id="ex-grade" min="1" max="30" step="1" value="7"
+                     aria-label="Years over which the harvesting grades linearly to zero">
+              <p class="hint">The pulled-forward deaths would all have happened within this many years after 2020. The solved pullforward share grades from its 2021 peak linearly to zero over this horizon.</p>
+            </div>
+          </details>
+
+          <details class="sub" open>
+            <summary>Cumulative excess by age band</summary>
+            <div class="sub-body">
+              <p class="hint" style="margin:0">Total extra COVID deaths for each age group, as a % of ONE normal year&rsquo;s deaths at that group&rsquo;s 2020 age. Bands are matched on the age in 2020.</p>
+              <div class="ctl-row" style="margin-top:8px">
+                <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Set all to (%)</label>
+                <input type="number" id="ex-fill-val" min="0" max="300" step="5" value="50">
+                <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
+              </div>
+              <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band"></div>
+            </div>
+          </details>
+
+          <div class="ctl-row" style="margin-top:10px">
+            <label for="ex-spread" style="font-size:13px">Grade the excess over multiple years</label>
+            <input type="checkbox" id="ex-spread">
+          </div>
+          <div class="ctl-row hidden" id="ex-spread-years-row">
+            <label for="ex-spread-years" style="font-size:13px">Over how many years</label>
+            <input type="number" id="ex-spread-years" min="2" max="10" step="1" value="3">
+          </div>
+          <p class="hint" id="ex-spread-hint">Off: the whole excess lands in 2020. On: the same total is spread from 2020 linearly down to zero over N years (e.g. 50% over 3 years = 25% / 16.7% / 8.3%) &mdash; the charts then show the excess and the harvesting overlapping.</p>
+        </div>
+      </details>
+
+      <details class="ctl-group" open>
+        <summary>Mortality improvement</summary>
+        <div class="grp-body">
+          <div class="ctl-row">
+            <label for="imp-enabled" style="font-size:13px">Apply future improvement (all segments)</label>
+            <input type="checkbox" id="imp-enabled" checked>
+          </div>
+          <div id="imp-body">
+            <div class="ctl-row" style="margin-top:8px">
+              <label for="imp-rate" style="font-size:13px">Flat rate (%/yr)</label>
+              <input type="number" id="imp-rate" min="-20" max="20" step="0.1" value="1.0"
+                     aria-label="Flat annual mortality improvement rate in percent">
+            </div>
+            <p class="hint">Mortality falls this much each calendar year at every age, compounding from 2022. Default: 1%.</p>
+            <div class="ctl-row" style="margin-top:10px">
+              <button type="button" class="copy-btn" id="imp-import" style="margin-top:0">Import CSV&hellip;</button>
+              <button type="button" class="copy-btn hidden" id="imp-clear" style="margin-top:0">Remove</button>
+              <input type="file" id="imp-file" accept=".csv,text/csv" class="hidden">
+            </div>
+            <p class="hint" id="imp-status">Using the flat rate. Import a CSV for age-varying (1D) or age &times; year (2D) rates.</p>
+            <p class="hint">Templates: <a href="#" id="tmpl-1d">1D (per age)</a> &middot; <a href="#" id="tmpl-2d">2D (age &times; year)</a> &mdash; pre-filled with 1%; edit in Excel, save as CSV, import here. Rates are decimals: 0.01 = 1%/yr.</p>
+          </div>
+          <p class="hint hidden" id="imp-off-hint">Off: the static SSA 2019 table is used with no future improvement.</p>
+        </div>
+      </details>
+
+      <details class="ctl-group" open>
+        <summary>Run it in the codebase</summary>
+        <div class="grp-body">
+          <div class="cli" id="cli-cmd"></div>
+          <p class="cli-note" id="cli-note"></p>
+          <button type="button" class="copy-btn" id="copy-cli">Copy command</button>
+        </div>
+      </details>
+    </aside>
+
+    <!-- ================= Results ================= -->
+    <section class="results">
+
+      <div class="card outview" aria-label="Output view">
+        <div class="ov-row">
+          <div class="ov-block">
+            <p class="eyebrow" id="focus-eyebrow">Focus cohort &mdash; tiles &amp; charts</p>
+            <div class="ov-inline">
+              <input type="range" id="focus-age" min="30" max="90" step="1" value="65" aria-label="Cohort age at end of COVID">
+              <span class="readout" id="cohort-out">Male, age 65</span>
+            </div>
+            <div class="seg" role="group" aria-label="Focus sex" style="margin-top:8px; max-width:200px">
+              <button type="button" id="sex-male" aria-pressed="true">Male</button>
+              <button type="button" id="sex-female" aria-pressed="false">Female</button>
+            </div>
+          </div>
+          <div class="ov-block">
+            <p class="eyebrow">Summary table shows</p>
+            <div class="checks">
+              <label><input type="checkbox" id="view-male" checked> Male</label>
+              <label><input type="checkbox" id="view-female" checked> Female</label>
+            </div>
+            <div class="ov-inline" style="margin-top:8px">
+              <label for="view-ages" class="hint" style="margin:0; white-space:nowrap">Ages:</label>
+              <input type="text" id="view-ages" class="ages-input" value="40, 50, 55, 60, 65, 70, 75, 80"
+                     aria-label="Comma-separated cohort ages shown in the summary table">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tiles mode-direct" id="tiles" aria-label="Focus cohort results">
+        <div class="tile hero">
+          <div class="label">LE gained by survivors</div>
+          <div class="value" id="tile-change">&ndash;</div>
+          <div class="sub" id="tile-change-sub"></div>
+        </div>
+        <div class="tile hero">
+          <div class="label">Equiv. mortality multiplier</div>
+          <div class="value" id="tile-mult">&ndash;</div>
+          <div class="sub" id="tile-mult-sub">flat qx scaling matching survivors&rsquo; LE</div>
+        </div>
+        <div class="tile">
+          <div class="label">LE before COVID</div>
+          <div class="value" id="tile-pre">&ndash;</div>
+          <div class="sub" id="tile-pre-sub">SSA 2019 baseline</div>
+        </div>
+        <div class="tile">
+          <div class="label">LE for survivors</div>
+          <div class="value" id="tile-post">&ndash;</div>
+          <div class="sub">after removing pulled-forward deaths</div>
+        </div>
+        <div class="tile">
+          <div class="label">Survived COVID</div>
+          <div class="value" id="tile-surv">&ndash;</div>
+          <div class="sub">share of the original cohort</div>
+        </div>
+      </div>
+
+      <div class="card chart-card mode-direct">
+        <h2>The assumption: pullforward curve f(t)</h2>
+        <p class="sub" id="f-sub">Share of each future year&rsquo;s deaths that instead happened during COVID.</p>
+        <div class="chart-box" id="chart-f"></div>
+      </div>
+
+      <div class="card chart-card mode-direct">
+        <h2>The result: survivor mortality vs the baseline table</h2>
+        <p class="sub">Ratio of the survivors&rsquo; death rate to the baseline rate. Below 1.0 means survivors are healthier than the table; it returns to 1.0 once the pullforward window has passed.</p>
+        <div class="chart-box" id="chart-mult"></div>
+        <details class="data-table">
+          <summary>View chart data as a table (first 20 years)</summary>
+          <div class="table-scroll"><table class="summary" id="detail-table"></table></div>
+        </details>
+      </div>
+
+      <div class="card chart-card mode-direct">
+        <h2>Death distribution: original cohort vs survivors</h2>
+        <p class="sub">Probability of dying in each future year. Pulled-forward deaths are removed from the early years, shifting the survivors&rsquo; curve to the right.</p>
+        <div class="chart-box" id="chart-dist"></div>
+        <div class="legend" id="dist-legend"></div>
+      </div>
+
+      <div class="card chart-card mode-direct">
+        <h2>All cohorts under these assumptions</h2>
+        <p class="sub" id="summary-sub">Each cohort uses the inputs of the segment it belongs to. The highlighted row is your focus cohort.</p>
+        <div class="table-scroll"><table class="summary" id="summary-table"></table></div>
+      </div>
+
+      <!-- ===== Excess-calibration mode results ===== -->
+      <div class="tiles mode-excess hidden" id="ex-tiles" aria-label="Excess calibration results">
+        <div class="tile hero">
+          <div class="label">Pulled forward from 2021</div>
+          <div class="value" id="ex-tile-peak">&ndash;</div>
+          <div class="sub" id="ex-tile-peak-sub">solved: share of 2021 deaths that happened in 2020 instead</div>
+        </div>
+        <div class="tile hero">
+          <div class="label" id="ex-tile-gain-label">LE gain at 2025</div>
+          <div class="value" id="ex-tile-gain">&ndash;</div>
+          <div class="sub" id="ex-tile-gain-sub"></div>
+        </div>
+        <div class="tile">
+          <div class="label">Equiv. mortality multiplier</div>
+          <div class="value" id="ex-tile-mult">&ndash;</div>
+          <div class="sub">flat qx scaling matching survivors&rsquo; LE</div>
+        </div>
+        <div class="tile">
+          <div class="label" id="ex-tile-base-label">Baseline LE in 2025</div>
+          <div class="value" id="ex-tile-base">&ndash;</div>
+          <div class="sub" id="ex-tile-base-sub"></div>
+        </div>
+        <div class="tile">
+          <div class="label">Died from COVID excess</div>
+          <div class="value" id="ex-tile-x">&ndash;</div>
+          <div class="sub" id="ex-tile-x-sub"></div>
+        </div>
+        <div class="tile">
+          <div class="label" id="ex-tile-alive-label">Alive in 2025 vs baseline</div>
+          <div class="value" id="ex-tile-alive">&ndash;</div>
+          <div class="sub">the not-yet-harvested deficit</div>
+        </div>
+      </div>
+
+      <div class="card chart-card mode-excess hidden">
+        <h2 id="ex-traj-title">Mortality trajectory with and without COVID</h2>
+        <p class="sub" id="ex-traj-sub"></p>
+        <div class="chart-box" id="chart-traj"></div>
+        <div class="legend" id="ex-traj-legend"></div>
+      </div>
+
+      <div class="card chart-card mode-excess hidden">
+        <h2>The solved pullforward: share of each year&rsquo;s deaths pulled into 2020</h2>
+        <p class="sub" id="ex-f-sub"></p>
+        <div class="chart-box" id="chart-fcal"></div>
+      </div>
+
+      <div class="card chart-card mode-excess hidden">
+        <h2>Survivor mortality multiple by calendar year</h2>
+        <p class="sub" id="ex-mult-sub">The focus cohort&rsquo;s death rate vs the no-COVID baseline: the 2020 spike (the excess), a dip below 1.0 while the harvesting plays out, and exactly 1.0 once the grade-out horizon passes.</p>
+        <div class="chart-box" id="chart-multcal"></div>
+      </div>
+
+      <div class="card chart-card mode-excess hidden">
+        <h2>All cohorts under this calibration</h2>
+        <p class="sub" id="ex-summary-sub"></p>
+        <div class="table-scroll"><table class="summary" id="ex-summary-table"></table></div>
+      </div>
+
+      <details class="explainer">
+        <summary>How the model works &mdash; the four steps</summary>
+        <div class="body">
+          <p>The model asks one question: <strong>if COVID&rsquo;s victims were mostly people who were going to
+             die soon anyway, how much healthier is the surviving population?</strong> It answers in four steps,
+             computed independently for each starting age and sex.</p>
+
+          <h3>Step A &mdash; When would the cohort have died anyway?</h3>
+          <p>From the SSA 2019 period life table, compute the probability that a cohort member dies in each
+             future year <var>t</var>. These are unconditional probabilities &mdash; they sum to exactly 100%
+             because everyone eventually dies.</p>
+          <div class="formula">d(t) = S(t&minus;1) &times; qx(age + t &minus; 1),&nbsp;&nbsp; where S = probability of surviving to year t</div>
+
+          <h3>Step B &mdash; Which of those deaths did COVID pull forward?</h3>
+          <p>This is the assumption you control, separately for each <strong>segment</strong> (age band, and
+             optionally sex). f(t) is the share of year-<var>t</var> deaths that instead happened during COVID.
+             The peak fraction sets its height at t=1; the shape and grade-out set how fast it fades for deaths
+             further in the future. A cohort uses the inputs of the segment containing its age at the end of
+             COVID. Grade-out 0, peak 0%, or unticking &ldquo;active&rdquo; all mean no pullforward for that segment.</p>
+          <div class="formula">linear:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; f(t) = peak &times; max(0, 1 &minus; (t&minus;1) / grade_out)<br>step:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; f(t) = peak &nbsp;for t &le; grade_out, else 0<br>exponential:&nbsp; f(t) = peak &times; e<sup>&minus;decay &times; (t&minus;1)</sup></div>
+          <p>Note the difference between linear and step: <em>linear</em> starts at the peak and ramps
+             straight down to zero at the horizon (halfway out, only half the peak effect applies), while
+             <em>step</em> applies the full peak effect to every year inside the horizon. &ldquo;Everyone who
+             would have died within G years died during COVID instead&rdquo; is the step shape with peak = 100%
+             &mdash; but note that if the horizon covers a cohort&rsquo;s whole remaining lifetime, that
+             setting leaves no survivors and the post-COVID results are undefined.</p>
+
+          <h3>Step C &mdash; What does the surviving population look like?</h3>
+          <p>Remove the pulled-forward deaths from each year and renormalize. The removed mass is the share of
+             the cohort that died during COVID; what remains is the survivors&rsquo; death distribution.</p>
+          <div class="formula">g(t) = d(t) &times; (1 &minus; f(t)) / Z,&nbsp;&nbsp; where Z = &Sigma; d(t)(1&minus;f(t)) = share who survived COVID</div>
+
+          <h3>Step D &mdash; What does that imply for mortality and life expectancy?</h3>
+          <p>Convert g(t) back into annual death rates for survivors, and compare them to the baseline table. The
+             ratio is the <strong>mortality multiple</strong> &mdash; below 1.0 means the survivors are healthier
+             than the table says, because the frailest members were culled. Life expectancy is the area under
+             the survival curve; the headline number is survivors&rsquo; LE minus baseline LE.</p>
+          <div class="formula">multiple(t) = effective_qx(t) / qx_baseline(t),&nbsp;&nbsp; LE = &Sigma; S(t)</div>
+
+          <h3>Mortality improvement (the baseline itself gets better)</h3>
+          <p>By default the model assumes mortality keeps improving 1% per year at every age (people
+             have historically kept getting healthier). Projection year <var>t</var> uses
+             qx &times; (1 &minus; rate)<sup>t&minus;1</sup>, compounding from 2022. Both the baseline LE and the
+             survivors&rsquo; LE include it, so the headline LE change still isolates the pullforward effect.
+             You can set a different flat rate, turn it off, or import a CSV of rates by age (1D) or by
+             age and calendar year (2D) from the sidebar. Improvement applies to all segments.</p>
+
+          <h3>The equivalent mortality multiplier</h3>
+          <p>A second way to express the survivors&rsquo; advantage: the single flat percentage applied to the
+             <em>entire</em> baseline qx table that would produce the same life expectancy the survivors have.
+             For example 92% means &ldquo;the survivors&rsquo; LE gain is what you&rsquo;d get by cutting mortality
+             8% at every age, forever.&rdquo; It is found by bisection and is exact to ~1e-6 years.</p>
+
+          <h3>The other direction: calibrating from COVID excess deaths</h3>
+          <p>The <strong>&ldquo;Calibrate from excess&rdquo;</strong> mode runs the logic backwards from an
+             observable. You assume each age group&rsquo;s <em>cumulative</em> extra COVID deaths, as a % of one
+             normal year&rsquo;s deaths for that group (in 5-year bands), and attribute them all to 2020. Those
+             deaths were borrowed from the future, so the same number must be <em>missing</em> from 2021 onward
+             &mdash; and they are missing from the cohort <em>as it ages</em>: a 60-year-old&rsquo;s death pulled
+             forward from 2023 would have happened at age 63, in 2023. Because mortality rises with age, a fixed
+             number of borrowed deaths is a shrinking share of each later year&rsquo;s (larger) death count
+             &mdash; the aging of the cohort automatically mutes the future effect. Given the excess and a linear
+             grade-out over G years, the model <em>solves</em> the one remaining unknown &mdash; the share of
+             2021&rsquo;s deaths pulled into 2020:</p>
+          <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t=1..G</sub> peak &times; (1 &minus; (t&minus;1)/G) &times; D<sub>baseline</sub>(t)</div>
+          <p>Bookkeeping is in absolute deaths per person alive at the start of 2020. The COVID path adds the
+             excess in 2020 and subtracts the harvested deaths after; dividing by the surviving population gives
+             the with-COVID death rates, the mortality multiple (spike to 1+E in 2020, dip below 1.0, back to
+             exactly 1.0 after the horizon), and &mdash; standing at the valuation year &mdash; the remaining LE
+             gain for people still alive. The trajectory chart anchors the SSA 2019 table at calendar 2019 and
+             uses the improvement scale both forward (to 2035) and backward (to 2010). If the assumed excess
+             exceeds all deaths available inside the horizon, the solve is infeasible: the pullforward is capped
+             at 100% and a warning is shown. The optional excess grading spreads the same total excess linearly
+             to zero over a few years instead of dumping it all in 2020 &mdash; it re-times the spike (the charts
+             then show excess and harvesting overlapping in 2021&ndash;2022) without changing the totals. The
+             Python twin of this mode is <code>excess.py</code>.</p>
+
+          <h3>Reading the outputs</h3>
+          <ul>
+            <li>The effect is <strong>largest for older cohorts</strong>: more of their near-term deaths fell inside the pullforward window.</li>
+            <li>The multiple <strong>returns to 1.0</strong> at the grade-out horizon &mdash; the model assumes no lasting health advantage, only selection.</li>
+            <li>The math mirrors the Python code in <code>mortality_model/</code>. Each cohort depends only on its own segment&rsquo;s inputs, so the command in the sidebar reproduces the focus cohort exactly; run it once per segment (changing <code>--age</code>/<code>--sex</code> and the values) to cover all segments.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============ Model (mirrors mortality_model/*.py; verified against Python) ============ */
+const MALE_ANCHORS = {0:0.00576,1:0.000374,10:0.000100,20:0.001163,30:0.001576,40:0.003097,50:0.007254,60:0.015990,65:0.020980,70:0.031590,75:0.048220,80:0.074780,85:0.117210,90:0.181680,95:0.269820,100:0.377500,105:0.500000,110:0.650000,115:0.850000,119:1.000000};
+const FEMALE_ANCHORS = {0:0.00491,1:0.000307,10:0.000090,20:0.000490,30:0.000830,40:0.001790,50:0.004360,60:0.009730,65:0.013610,70:0.021460,75:0.034320,80:0.057270,85:0.097010,90:0.159880,95:0.246960,100:0.360760,105:0.480000,110:0.620000,115:0.800000,119:1.000000};
+const MAX_AGE = 119;
+
+function interpolateQx(anchors) {
+  const ages = Object.keys(anchors).map(Number).sort((a, b) => a - b);
+  const qx = new Float64Array(MAX_AGE + 1);
+  for (let i = 0; i < ages.length - 1; i++) {
+    const a0 = ages[i], a1 = ages[i + 1];
+    const logQ0 = Math.log(anchors[a0]), logQ1 = Math.log(anchors[a1]);
+    for (let age = a0; age <= a1; age++) {
+      const t = (age - a0) / (a1 - a0);
+      qx[age] = Math.exp(logQ0 + t * (logQ1 - logQ0));
+    }
+  }
+  qx[MAX_AGE] = 1.0;
+  return qx;
+}
+const QX = { male: interpolateQx(MALE_ANCHORS), female: interpolateQx(FEMALE_ANCHORS) };
+const getQx = (age, sex) => QX[sex][Math.min(age, MAX_AGE)];
+
+/* ---- Mortality improvement (mirrors mortality_model/improvement.py) ---- */
+const BASE_YEAR = 2022;
+const MAX_SANE_RATE = 0.20;
+
+// scale objects: {mode:'flat', rate}
+//                {mode:'1d', rates:{male:Float64Array(131), female:...}}
+//                {mode:'2d', years:[...], rates:{male:[[...]], female:...}}  (rates[sex][ageIdx][yearIdx])
+function improvementRate(scale, age, year, sex) {
+  if (!scale) return 0;
+  if (scale.mode === "flat") return scale.rate;
+  const arr = scale.rates[sex];
+  if (!arr) return 0;
+  const a = Math.min(Math.max(age, 0), arr.length - 1);
+  if (scale.mode === "1d") return arr[a];
+  const ys = scale.years;
+  const y = Math.min(Math.max(year, ys[0]), ys[ys.length - 1]);
+  return arr[a][ys.indexOf(y)];
+}
+// PRODUCT over j=1..nYears of (1 - rate(age, BASE_YEAR + j, sex))
+function cumulativeFactor(scale, age, nYears, sex) {
+  if (!scale || nYears <= 0) return 1;
+  if (scale.mode !== "2d") return Math.pow(1 - improvementRate(scale, age, BASE_YEAR + 1, sex), nYears);
+  let f = 1;
+  for (let j = 1; j <= nYears; j++) f *= 1 - improvementRate(scale, age, BASE_YEAR + j, sex);
+  return f;
+}
+// Baseline qx vector for a cohort, with improvement baked in along the
+// age x calendar-year diagonal (age startingAge+i is reached after i years).
+function cohortQx(startingAge, sex, scale) {
+  const n = MAX_AGE - startingAge + 1;
+  const qx = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    qx[i] = Math.min(1, getQx(startingAge + i, sex) * cumulativeFactor(scale, startingAge + i, i, sex));
+  }
+  qx[n - 1] = 1.0;
+  return qx;
+}
+
+/* ---- Equivalent flat multiplier (mirrors analysis.solve_equivalent_flat_multiplier) ---- */
+function leFromQx(qx, m) {
+  const n = qx.length;
+  const d = new Float64Array(n);
+  let surv = 1, total = 0;
+  for (let i = 0; i < n; i++) {
+    const q = i === n - 1 ? 1 : Math.min(1, Math.max(0, qx[i] * m));
+    d[i] = surv * q;
+    surv *= 1 - q;
+    total += d[i];
+  }
+  let s = 1, sum = 0;
+  for (let i = 0; i < n; i++) { sum += s; s -= d[i] / total; }
+  return sum;
+}
+function solveEquivMultiplier(targetLe, qx) {
+  let lo = 1e-6, hi = 1.0;
+  while (leFromQx(qx, hi) > targetLe && hi < 64) { lo = hi; hi *= 2; }
+  if (leFromQx(qx, lo) < targetLe) return NaN;
+  for (let k = 0; k < 80; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (leFromQx(qx, mid) > targetLe) lo = mid; else hi = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+/* ---- Improvement CSV import (same schema as the Python tool) ----
+   1D: age,improvement  OR  age,male_improvement,female_improvement
+   2D: age,<4-digit year>,...  with an optional 'sex' column
+   Rates are decimals (0.01 = 1%/yr). Auto-detected from the header. */
+function parseImprovementCsv(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "");
+  if (lines.length < 2) throw new Error("The CSV has no data rows.");
+  const header = lines[0].split(",").map((s) => s.trim().toLowerCase());
+  const ageCol = header.indexOf("age");
+  if (ageCol === -1) throw new Error("The CSV must have an 'age' column.");
+  const rows = lines.slice(1).map((l) => l.split(",").map((s) => s.trim()));
+
+  const checkRate = (v) => {
+    if (!Number.isFinite(v)) throw new Error("The CSV contains missing or non-numeric rates.");
+    if (Math.abs(v) > MAX_SANE_RATE)
+      throw new Error("Found rates with |rate| > 0.20. Rates must be decimals (0.01 = 1% per year), not percents.");
+    return v;
+  };
+  // Fill ages 0..130 from a sparse {age: value(s)} map: previous age if present
+  // (ffill), else the first available (bfill) — same as the Python loader.
+  const fillAges = (byAge, width) => {
+    const ages = Object.keys(byAge).map(Number).sort((a, b) => a - b);
+    if (!ages.length) return null;
+    const out = [];
+    let k = -1;
+    for (let a = 0; a <= 130; a++) {
+      while (k + 1 < ages.length && ages[k + 1] <= a) k++;
+      out.push(byAge[ages[Math.max(k, 0)]]);
+    }
+    return width === 1 ? Float64Array.from(out) : out;
+  };
+
+  const yearCols = [];
+  header.forEach((h, i) => { if (/^\d{4}$/.test(h)) yearCols.push({ year: +h, col: i }); });
+
+  if (yearCols.length) {
+    // 2D: rows = ages (optionally per sex), columns = calendar years
+    yearCols.sort((a, b) => a.year - b.year);
+    const years = yearCols.map((c) => c.year);
+    const sexCol = header.indexOf("sex");
+    const bySex = { male: {}, female: {} };
+    for (const row of rows) {
+      const age = Math.round(+row[ageCol]);
+      const vals = yearCols.map((c) => checkRate(parseFloat(row[c.col])));
+      if (sexCol !== -1) {
+        const sx = (row[sexCol] || "").toLowerCase();
+        if (sx !== "male" && sx !== "female") continue;
+        if (!(age in bySex[sx])) bySex[sx][age] = vals;
+      } else {
+        if (!(age in bySex.male)) { bySex.male[age] = vals; bySex.female[age] = vals; }
+      }
+    }
+    const rates = {};
+    for (const sx of ["male", "female"]) {
+      const arr = fillAges(bySex[sx], years.length);
+      if (arr) rates[sx] = arr;
+    }
+    if (!rates.male && !rates.female)
+      throw new Error("The 2D CSV has a 'sex' column but no 'male'/'female' rows.");
+    return { mode: "2d", years, rates };
+  }
+
+  // 1D: one rate per age
+  const impCol = header.indexOf("improvement");
+  const maleCol = header.indexOf("male_improvement");
+  const femaleCol = header.indexOf("female_improvement");
+  if (impCol === -1 && (maleCol === -1 || femaleCol === -1))
+    throw new Error("A 1D CSV needs either an 'improvement' column or both 'male_improvement' and 'female_improvement'.");
+  const byAge = { male: {}, female: {} };
+  for (const row of rows) {
+    const age = Math.round(+row[ageCol]);
+    if (impCol !== -1) {
+      const v = checkRate(parseFloat(row[impCol]));
+      byAge.male[age] = v; byAge.female[age] = v;
+    } else {
+      byAge.male[age] = checkRate(parseFloat(row[maleCol]));
+      byAge.female[age] = checkRate(parseFloat(row[femaleCol]));
+    }
+  }
+  return { mode: "1d", rates: { male: fillAges(byAge.male, 1), female: fillAges(byAge.female, 1) } };
+}
+
+function templateCsv(kind) {
+  if (kind === "1d") {
+    let t = "age,male_improvement,female_improvement\n";
+    for (let a = 0; a <= 119; a++) t += `${a},0.01,0.01\n`;
+    return t;
+  }
+  const years = [];
+  for (let y = 2023; y < 2073; y++) years.push(y);
+  let t = "age," + years.join(",") + "\n";
+  for (let a = 0; a <= 119; a++) t += a + ",0.01".repeat(years.length) + "\n";
+  return t;
+}
+
+/* ---- Pullforward f(t): per-segment params ----
+   params = { enabled, shape:'linear'|'step'|'exponential', peakFraction, gradeOutYears, decayRate }
+   Grade-out 0 (or enabled=false, or peak 0) means no pullforward. */
+function pullforwardFraction(t, params) {
+  if (t <= 0 || !params.enabled) return 0;
+  if (params.shape === "linear") {
+    const G = params.gradeOutYears;
+    if (G <= 0) return 0;
+    return params.peakFraction * Math.max(0, 1 - (t - 1) / G);
+  }
+  if (params.shape === "step") {
+    // Constant box: full peak effect for every year inside the horizon.
+    return t <= params.gradeOutYears ? params.peakFraction : 0;
+  }
+  return params.peakFraction * Math.exp(-params.decayRate * (t - 1));
+}
+
+function runCohort(startingAge, sex, params, scale) {
+  const n = MAX_AGE - startingAge + 1;
+  // Step 0: baseline qx with mortality improvement baked in (scale may be null)
+  const qxVec = cohortQx(startingAge, sex, scale);
+  // Step A: d(t)
+  const d = new Float64Array(n);
+  let survival = 1.0;
+  for (let i = 0; i < n; i++) {
+    d[i] = survival * qxVec[i];
+    survival *= 1 - qxVec[i];
+  }
+  let total = 0;
+  for (let i = 0; i < n; i++) total += d[i];
+  for (let i = 0; i < n; i++) d[i] /= total;
+  // Step B: f(t) and removal
+  const f = new Float64Array(n), dRem = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    f[i] = pullforwardFraction(i + 1, params);
+    dRem[i] = d[i] * (1 - f[i]);
+  }
+  // Step C: g(t). If f removed 100% of remaining deaths there is no surviving
+  // cohort, so post-COVID quantities are undefined (rendered as a warning).
+  let survivorFraction = 0;
+  for (let i = 0; i < n; i++) survivorFraction += dRem[i];
+  const noSurvivors = survivorFraction <= 1e-12;
+  const g = new Float64Array(n);
+  if (noSurvivors) g.fill(NaN);
+  else for (let i = 0; i < n; i++) g[i] = dRem[i] / survivorFraction;
+  // Step D: effective qx, multiples (vs the improved baseline)
+  const effQx = new Float64Array(n), multiples = new Float64Array(n);
+  let cum = 0;
+  for (let i = 0; i < n; i++) {
+    const Sg = 1 - cum;
+    effQx[i] = Sg > 1e-15 ? g[i] / Sg : NaN;
+    multiples[i] = qxVec[i] > 0 && !Number.isNaN(effQx[i]) ? effQx[i] / qxVec[i] : NaN;
+    cum += g[i];
+  }
+  const le = (dist) => { let s = 1, sum = 0; for (let i = 0; i < n; i++) { sum += s; s -= dist[i]; } return sum; };
+  const lePre = le(d), lePost = noSurvivors ? NaN : le(g);
+  // Equivalent flat multiplier: uniform qx scaling that reproduces lePost
+  const equivMult = noSurvivors ? NaN : solveEquivMultiplier(lePost, qxVec);
+  return { startingAge, sex, survivorFraction, noSurvivors, lePre, lePost, leChange: lePost - lePre, equivMult, qxVec, d, f, g, effQx, multiples };
+}
+
+/* ============ Excess-calibration mode (mirrors mortality_model/excess.py) ============
+   Assume each age band's CUMULATIVE excess COVID deaths (as a fraction of one
+   normal year's deaths), attribute them all to 2020, and SOLVE the pullforward:
+   the share of 2021's deaths pulled into 2020, grading linearly to zero over G
+   years. The harvested deaths come from the cohort AS IT AGES, so rising qx
+   automatically mutes the effect in later years. */
+const TABLE_BASE_YEAR = 2019;   // calendar year of the SSA 2019 base table
+const COVID_YEAR = 2020;        // all excess deaths are attributed to this year
+const N_BANDS = 21;             // 5-year bands: 0-4, ..., 95-99, 100+
+const bandIndex = (age) => Math.min(Math.floor(Math.max(age, 0) / 5), N_BANDS - 1);
+const bandLabel = (i) => (i === N_BANDS - 1 ? "100+" : (5 * i) + "–" + (5 * i + 4));
+
+// Cumulative improvement factor taking the 2019 base table to `year`.
+// Years after 2019 compound (1 - rate); years before 2019 divide it out.
+function calendarFactor(scale, age, year, sex) {
+  if (!scale || year === TABLE_BASE_YEAR) return 1;
+  if (scale.mode !== "2d")
+    return Math.pow(1 - improvementRate(scale, age, year, sex), year - TABLE_BASE_YEAR);
+  if (year > TABLE_BASE_YEAR) {
+    let f = 1;
+    for (let k = TABLE_BASE_YEAR + 1; k <= year; k++) f *= 1 - improvementRate(scale, age, k, sex);
+    return f;
+  }
+  let f = 1;
+  for (let k = year + 1; k <= TABLE_BASE_YEAR; k++) f *= 1 - improvementRate(scale, age, k, sex);
+  return 1 / f;
+}
+function calendarQx(age, year, sex, scale) {
+  const a = Math.min(age, MAX_AGE);
+  if (a >= MAX_AGE) return 1;
+  return Math.min(1, getQx(a, sex) * calendarFactor(scale, a, year, sex));
+}
+
+// Full bookkeeping for one cohort aged `age2020` in 2020; index t = calendar
+// year 2020 + t. All quantities are per person alive at the start of 2020.
+function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valuationYear, gradeExcessYears) {
+  const n = MAX_AGE - age2020 + 1;
+  const q = new Float64Array(n);
+  for (let t = 0; t < n; t++) q[t] = calendarQx(age2020 + t, COVID_YEAR + t, sex, scale);
+  q[n - 1] = 1;
+  const Ab = new Float64Array(n + 1), Db = new Float64Array(n);
+  Ab[0] = 1;
+  for (let t = 0; t < n; t++) { Db[t] = Ab[t] * q[t]; Ab[t + 1] = Ab[t] - Db[t]; }
+
+  // Excess deaths in 2020: E x one year's mortality
+  const E = excessByBand[bandIndex(age2020)];
+  const X = E * q[0];
+
+  // Solve the peak so harvested deaths (2021+) equal the excess
+  const G = gradeOutYears;
+  const w = new Float64Array(n);
+  for (let t = 1; t < n; t++) if (G > 0 && t <= G) w[t] = 1 - (t - 1) / G;
+  let denom = 0;
+  for (let t = 0; t < n; t++) denom += w[t] * Db[t];
+  const peak = denom > 0 ? X / denom : Infinity;
+  const infeasible = !Number.isFinite(peak) || peak > 1 + 1e-12;
+  const f = new Float64Array(n), h = new Float64Array(n);
+  for (let t = 0; t < n; t++) { f[t] = w[t] > 0 ? Math.min(1, peak * w[t]) : 0; h[t] = f[t] * Db[t]; }
+  let harvested = 0;
+  for (let t = 0; t < n; t++) harvested += h[t];
+  const shortfall = X - harvested;   // > 0 only when infeasible (f capped at 100%)
+
+  // Timing of the excess deaths: all in 2020, or graded linearly to zero
+  const x = new Float64Array(n);
+  const gx = Math.floor(gradeExcessYears || 0);
+  if (gx >= 2) {
+    const wsum = gx * (gx + 1) / 2;
+    for (let j = 0; j < Math.min(gx, n); j++) x[j] = X * (gx - j) / wsum;
+  } else x[0] = X;
+
+  // COVID path: absolute-death bookkeeping inside the excess/harvest window,
+  // baseline RATES after it (identical when the harvest fully repaid the
+  // excess; the graceful behavior when it could not).
+  const winEnd = Math.max(G, gx - 1);
+  const Ac = new Float64Array(n + 1), Dc = new Float64Array(n);
+  Ac[0] = 1;
+  for (let t = 0; t < n; t++) {
+    let dc;
+    if (t === n - 1) dc = Ac[t];                 // terminal age: qx = 1
+    else if (t > winEnd) dc = Ac[t] * q[t];
+    else dc = Db[t] + x[t] - h[t];
+    dc = Math.max(0, Math.min(dc, Ac[t]));
+    Dc[t] = dc; Ac[t + 1] = Ac[t] - dc;
+  }
+  const qc = new Float64Array(n), multiple = new Float64Array(n);
+  for (let t = 0; t < n; t++) {
+    qc[t] = Ac[t] > 1e-15 ? Dc[t] / Ac[t] : NaN;
+    multiple[t] = q[t] > 0 && Number.isFinite(qc[t]) ? qc[t] / q[t] : NaN;
+  }
+
+  // Valuation: condition on being alive at the start of valuationYear
+  const tv = valuationYear - COVID_YEAR;
+  const valid = tv >= 0 && tv < n && Ac[tv] > 1e-12 && Ab[tv] > 1e-12;
+  let leBase = NaN, leSurv = NaN, leChange = NaN, equivMult = NaN, aliveVsBaseline = NaN;
+  if (valid) {
+    leBase = 0; for (let k = tv; k < n; k++) leBase += Ab[k] / Ab[tv];
+    leSurv = 0; for (let k = tv; k < n; k++) leSurv += Ac[k] / Ac[tv];
+    leChange = leSurv - leBase;
+    equivMult = solveEquivMultiplier(leSurv, q.slice(tv));
+    aliveVsBaseline = Ac[tv] / Ab[tv];
+  }
+  return { age2020, sex, n, q, Db, Ab, qc, Dc, Ac, f, x, h, multiple, E, X, peak,
+           infeasible, harvested, shortfall, tv, valid, ageAtValuation: age2020 + tv,
+           leBase, leSurv, leChange, equivMult, aliveVsBaseline };
+}
+
+// Period mortality at a FIXED age across calendar years: baseline vs COVID.
+// The COVID rate for (age, 2020+k) comes from the cohort that was age-k in 2020.
+function mortalityTrajectory(age, sex, scale, excessByBand, gradeOutYears, gradeExcessYears, valuationYear, yearStart, yearEnd, cache) {
+  const years = [], base = [], covid = [];
+  cache = cache || {};
+  for (let y = yearStart; y <= yearEnd; y++) {
+    years.push(y);
+    const b = calendarQx(age, y, sex, scale);
+    base.push(b);
+    const k = y - COVID_YEAR, c = age - k;
+    if (k < 0 || c < 0 || age > MAX_AGE) { covid.push(b); continue; }
+    const key = c + "|" + sex;
+    if (!cache[key]) cache[key] = runExcessCohort(c, sex, scale, excessByBand, gradeOutYears, valuationYear, gradeExcessYears);
+    const r = cache[key];
+    covid.push(k < r.n ? r.qc[k] : NaN);
+  }
+  return { years, base, covid };
+}
+
+/* ============ Segmentation ============ */
+function defaultParams() {
+  return { enabled: true, shape: "linear", peakFraction: 0.65, gradeOutYears: 7, decayRate: 0.30 };
+}
+// cutoffs [65,75] -> bands <65, 65–74, 75+
+const YOUNGEST_LABELED_AGE = 45;  // cosmetic floor: label the open-ended low band "45–X" instead of "<X"
+function bandsFromCutoffs(cutoffs) {
+  const cs = [...new Set(cutoffs)].filter((c) => Number.isFinite(c) && c >= 1 && c <= 119).sort((a, b) => a - b);
+  if (!cs.length) return [{ min: 0, max: 200, label: "All ages" }];
+  const firstLabel = cs[0] > YOUNGEST_LABELED_AGE ? YOUNGEST_LABELED_AGE + "–" + (cs[0] - 1) : "<" + cs[0];
+  const bands = [{ min: 0, max: cs[0], label: firstLabel }];
+  for (let i = 0; i < cs.length; i++) {
+    const lo = cs[i], hi = i + 1 < cs.length ? cs[i + 1] : 200;
+    bands.push({ min: lo, max: hi, label: hi === 200 ? lo + "+" : lo + "–" + (hi - 1) });
+  }
+  return bands;
+}
+function findSegmentIn(segments, age, sex) {
+  return segments.find((s) => age >= s.ageMin && age < s.ageMax && (s.sex === "all" || s.sex === sex)) || segments[0];
+}
+// Build segments from a definition; params carry over from prev segments where they overlap.
+function buildSegments(def, prev) {
+  const bands = bandsFromCutoffs(def.cutoffs);
+  const sexes = def.bySex ? ["male", "female"] : ["all"];
+  const out = [];
+  for (const b of bands) {
+    for (const sx of sexes) {
+      let params = defaultParams();
+      if (prev && prev.length) {
+        const src = findSegmentIn(prev, Math.min(b.min, 110), sx === "all" ? "male" : sx);
+        if (src) params = { ...src.params };
+      }
+      out.push({
+        sex: sx, ageMin: b.min, ageMax: b.max,
+        label: b.label + (sx === "all" ? "" : sx === "male" ? " · M" : " · F"),
+        params,
+      });
+    }
+  }
+  return out;
+}
+
+/* ============ Presets (mirror config.py) ============ */
+const PRESETS = {
+  moderate_base: { label: "Moderate base (recommended)", desc: "Most defensible for COVID: 65% peak, 7-year grade-out, shorter for the elderly.",
+    shape: "linear", peakFraction: 0.65, gradeOutYears: 7, ageVarying: true, bands: [10, 7, 5, 3] },
+  default: { label: "Default (theoretical ceiling)", desc: "Peak = 100% is aggressive; use as an upper reference point.",
+    shape: "linear", peakFraction: 1.0, gradeOutYears: 10, ageVarying: true, bands: [10, 8, 6, 5] },
+  short_harvest: { label: "Short harvest (conservative)", desc: "Flu-harvesting view: COVID only pulled forward deaths within ~3 years.",
+    shape: "linear", peakFraction: 0.60, gradeOutYears: 3, ageVarying: false, bands: [10, 8, 6, 5] },
+  elderly_concentrated: { label: "Elderly concentrated", desc: "Steep grade-out for 85+, mild for under-65s.",
+    shape: "linear", peakFraction: 0.70, gradeOutYears: 10, ageVarying: true, bands: [15, 8, 5, 3] },
+  long_harvest: { label: "Long harvest (aggressive)", desc: "COVID pulled forward deaths a decade or more out.",
+    shape: "linear", peakFraction: 0.50, gradeOutYears: 15, ageVarying: true, bands: [15, 12, 10, 7] },
+  exponential_moderate: { label: "Exponential, moderate", desc: "Fat tail, no hard cutoff; halves every ~1.7 years.",
+    shape: "exponential", peakFraction: 0.70, decayRate: 0.4, ageVarying: false, gradeOutYears: 10, bands: [10, 8, 6, 5] },
+  exponential_long_tail: { label: "Exponential, long tail", desc: "High peak, slow fade; halves every ~3.5 years.",
+    shape: "exponential", peakFraction: 0.80, decayRate: 0.2, ageVarying: false, gradeOutYears: 10, bands: [10, 8, 6, 5] },
+  sickest_only: { label: "Sickest only", desc: "Nearly all of the imminently dying, and only them: 90% peak, 2-year window.",
+    shape: "linear", peakFraction: 0.90, gradeOutYears: 2, ageVarying: false, bands: [10, 8, 6, 5] },
+  uniform_benchmark: { label: "Uniform benchmark", desc: "Clean 50% / 10-year benchmark with no age variation.",
+    shape: "linear", peakFraction: 0.50, gradeOutYears: 10, ageVarying: false, bands: [10, 8, 6, 5] },
+  custom: { label: "Custom", desc: "Your own settings — segments and inputs below." },
+};
+const PRESET_CUTOFFS = [65, 75, 85];  // age bands used by the age-varying presets (mirrors config.py)
+
+/* ============ State ============ */
+const state = {
+  mode: "direct",         // 'direct' (assume f(t)) | 'excess' (calibrate from excess)
+  preset: "moderate_base",
+  seg: { bySex: false, cutoffs: PRESET_CUTOFFS.slice() },
+  segments: [],           // built in init/applyPreset
+  activeSegIdx: 0,
+  focusAge: 65, focusSex: "male",
+  viewSexes: { male: true, female: true },
+  tableAges: [40, 50, 55, 60, 65, 70, 75, 80],
+  // Mortality improvement (global — applies to all segments)
+  impEnabled: true, impRatePct: 1.0, impScale: null, impFileName: null,
+  // Excess-calibration mode inputs
+  ex: {
+    bandsPct: new Array(N_BANDS).fill(50),  // cumulative excess per 5-yr band, % of one year's deaths
+    gradeOut: 7,
+    valuationYear: 2025,
+    spread: false, spreadYears: 3,          // grade the excess over multiple years
+  },
+};
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p || key === "custom") return;
+  state.seg = { bySex: false, cutoffs: p.ageVarying ? PRESET_CUTOFFS.slice() : [] };
+  state.segments = buildSegments(state.seg, null);
+  state.segments.forEach((s, i) => {
+    s.params = {
+      enabled: true, shape: p.shape, peakFraction: p.peakFraction,
+      gradeOutYears: p.ageVarying ? p.bands[i] : p.gradeOutYears,
+      decayRate: p.decayRate != null ? p.decayRate : 0.30,
+    };
+  });
+  state.activeSegIdx = 0;
+}
+applyPreset(state.preset);
+
+function activeSegment() { return state.segments[state.activeSegIdx] || state.segments[0]; }
+function focusSegment() { return findSegmentIn(state.segments, state.focusAge, state.focusSex); }
+function activeScale() {
+  if (!state.impEnabled) return null;
+  if (state.impScale) return state.impScale;
+  return { mode: "flat", rate: state.impRatePct / 100 };
+}
+
+/* ============ DOM helpers ============ */
+const $ = (id) => document.getElementById(id);
+const fmt = {
+  yrs: (v) => v.toFixed(2),
+  delta: (v) => (v >= 0 ? "+" : "") + v.toFixed(2),
+  delta3: (v) => (v >= 0 ? "+" : "") + v.toFixed(3),
+  pct0: (v) => Math.round(v * 100) + "%",
+  pct1: (v) => (v * 100).toFixed(1) + "%",
+};
+
+/* ============ Charts (SVG line/area with hover tooltip) ============ */
+function makeChart(container, opts) {
+  container.innerHTML = "";
+  const W = 720, H = opts.height || 230;
+  const m = { top: 12, right: 14, bottom: 34, left: 52 };
+  const iw = W - m.left - m.right, ih = H - m.top - m.bottom;
+  const xs = opts.xs;
+  const xMin = xs[0], xMax = xs[xs.length - 1];
+  const yDivs = 5;
+  let yMax = opts.yMax;
+  if (yMax == null) {
+    let raw = 0;
+    for (const s of opts.series) for (const v of s.ys) if (Number.isFinite(v)) raw = Math.max(raw, v);
+    if (opts.refY != null) raw = Math.max(raw, opts.refY * 1.1);
+    if (raw <= 0) raw = 1;
+    // round the tick step UP to 1 / 2 / 2.5 / 5 x 10^k so tick labels are clean
+    const rawStep = raw / yDivs;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const norm = rawStep / mag;
+    const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+    yMax = nice * mag * yDivs;
+  }
+  const X = (x) => m.left + ((x - xMin) / (xMax - xMin || 1)) * iw;
+  const Y = (y) => m.top + ih - (y / yMax) * ih;
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", opts.ariaLabel || "chart");
+
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(e);
+    return e;
+  };
+
+  // y grid + labels
+  for (let i = 0; i <= yDivs; i++) {
+    const yv = (yMax / yDivs) * i;
+    el("line", { x1: m.left, x2: m.left + iw, y1: Y(yv), y2: Y(yv), stroke: "#EDF0F4", "stroke-width": 1 });
+    const t = el("text", { x: m.left - 8, y: Y(yv) + 4, "text-anchor": "end", "font-size": 11, fill: "#8B95A3" });
+    t.textContent = opts.yTickFormat(yv);
+  }
+  // x ticks
+  const xStep = xMax - xMin > 60 ? 20 : xMax - xMin > 25 ? 10 : 5;
+  for (let xv = Math.ceil(xMin / xStep) * xStep; xv <= xMax; xv += xStep) {
+    const t = el("text", { x: X(xv), y: m.top + ih + 18, "text-anchor": "middle", "font-size": 11, fill: "#8B95A3" });
+    t.textContent = xv;
+  }
+  const xl = el("text", { x: m.left + iw / 2, y: H - 2, "text-anchor": "middle", "font-size": 11, fill: "#8B95A3" });
+  xl.textContent = opts.xLabel;
+  // axis line
+  el("line", { x1: m.left, x2: m.left + iw, y1: Y(0), y2: Y(0), stroke: "#CFD6DE", "stroke-width": 1 });
+  // reference line
+  if (opts.refY != null) {
+    el("line", { x1: m.left, x2: m.left + iw, y1: Y(opts.refY), y2: Y(opts.refY), stroke: "#8B95A3", "stroke-width": 1, "stroke-dasharray": "4 4" });
+    const rt = el("text", { x: m.left + iw, y: Y(opts.refY) - 5, "text-anchor": "end", "font-size": 11, fill: "#5A6675" });
+    rt.textContent = opts.refLabel || "";
+  }
+  // vertical marker (e.g. the valuation year)
+  if (opts.vlineX != null && opts.vlineX >= xMin && opts.vlineX <= xMax) {
+    const vx = X(opts.vlineX);
+    el("line", { x1: vx, x2: vx, y1: m.top, y2: m.top + ih, stroke: "#8B95A3", "stroke-width": 1, "stroke-dasharray": "3 4" });
+    const vt = el("text", { x: vx + 4, y: m.top + 11, "font-size": 11, fill: "#5A6675" });
+    vt.textContent = opts.vlineLabel || "";
+  }
+  // series
+  for (const s of opts.series) {
+    let path = "", started = false;
+    for (let i = 0; i < xs.length; i++) {
+      const v = s.ys[i];
+      if (!Number.isFinite(v)) { started = false; continue; }
+      path += (started ? "L" : "M") + X(xs[i]).toFixed(2) + " " + Y(v).toFixed(2);
+      started = true;
+    }
+    if (s.area) {
+      let ap = path + `L${X(xs[xs.length - 1]).toFixed(2)} ${Y(0)}L${X(xs[0]).toFixed(2)} ${Y(0)}Z`;
+      el("path", { d: ap, fill: s.color, opacity: 0.12 });
+    }
+    el("path", { d: path, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" });
+  }
+  // hover layer
+  const cross = el("line", { x1: 0, x2: 0, y1: m.top, y2: m.top + ih, stroke: "#5A6675", "stroke-width": 1, opacity: 0 });
+  const dots = opts.series.map((s) =>
+    el("circle", { r: 4, fill: s.color, stroke: "#fff", "stroke-width": 2, opacity: 0 }));
+  const hit = el("rect", { x: m.left, y: m.top, width: iw, height: ih, fill: "transparent" });
+
+  const tip = document.createElement("div");
+  tip.className = "tooltip";
+  container.appendChild(tip);
+  container.appendChild(svg);
+
+  const showAt = (clientX) => {
+    const rect = svg.getBoundingClientRect();
+    const px = ((clientX - rect.left) / rect.width) * W;
+    const xv = xMin + ((px - m.left) / iw) * (xMax - xMin);
+    let idx = Math.round(xv - xMin);
+    idx = Math.max(0, Math.min(xs.length - 1, idx));
+    const cx = X(xs[idx]);
+    cross.setAttribute("x1", cx); cross.setAttribute("x2", cx);
+    cross.setAttribute("opacity", 0.5);
+    let rows = "";
+    opts.series.forEach((s, k) => {
+      const v = s.ys[idx];
+      if (Number.isFinite(v)) {
+        dots[k].setAttribute("cx", cx); dots[k].setAttribute("cy", Y(v)); dots[k].setAttribute("opacity", 1);
+        rows += `<div><span class="chip" style="background:${s.color}"></span>${s.name}: <strong>${opts.tipFormat(v)}</strong></div>`;
+      } else dots[k].setAttribute("opacity", 0);
+    });
+    tip.innerHTML = `<div class="t-title">${opts.tipTitle(idx)}</div>` + rows;
+    tip.style.display = "block";
+    const bw = container.clientWidth;
+    const leftPx = (cx / W) * bw;
+    tip.style.left = Math.min(leftPx + 12, bw - tip.offsetWidth - 4) + "px";
+    tip.style.top = "8px";
+  };
+  const hide = () => {
+    cross.setAttribute("opacity", 0);
+    dots.forEach((d) => d.setAttribute("opacity", 0));
+    tip.style.display = "none";
+  };
+  hit.addEventListener("mousemove", (e) => showAt(e.clientX));
+  hit.addEventListener("mouseleave", hide);
+  hit.addEventListener("touchstart", (e) => { if (e.touches[0]) showAt(e.touches[0].clientX); }, { passive: true });
+  hit.addEventListener("touchmove", (e) => { if (e.touches[0]) showAt(e.touches[0].clientX); }, { passive: true });
+}
+
+/* ============ Rendering ============ */
+const C = { baseline: "#3B66A0", survivor: "#0C8A6D", pullfwd: "#B0611F" };
+
+function impCliFlags() {
+  const flags = [];
+  let note = "";
+  if (!state.impEnabled) {
+    flags.push("--no-improvement");
+  } else if (state.impScale) {
+    flags.push(`--improvement-table ${state.impFileName || "improvement.csv"}`);
+    note = " Put the imported CSV in the model folder first.";
+  } else if (Math.abs(state.impRatePct - 1.0) > 1e-9) {
+    flags.push(`--improvement-rate ${parseFloat((state.impRatePct / 100).toFixed(6))}`);
+  }
+  return { flags, note };
+}
+
+function render() {
+  if (state.mode === "excess") renderExcess();
+  else renderDirect();
+}
+
+function renderDirect() {
+  const scale = activeScale();
+  const fSeg = focusSegment();
+  const r = runCohort(state.focusAge, state.focusSex, fSeg.params, scale);
+  const sexLabel = state.focusSex === "male" ? "Male" : "Female";
+
+  // Tiles
+  $("tile-change").textContent = r.noSurvivors ? "–" : fmt.delta(r.leChange) + " yrs";
+  $("tile-change-sub").textContent = r.noSurvivors
+    ? "no survivors — 100% of remaining deaths pulled into COVID"
+    : `${(r.leChange / r.lePre * 100).toFixed(1)}% more remaining life`;
+  $("tile-mult").textContent = Number.isFinite(r.equivMult) ? (r.equivMult * 100).toFixed(1) + "%" : "–";
+  $("tile-mult-sub").textContent = Number.isFinite(r.equivMult)
+    ? `like cutting every qx by ${((1 - r.equivMult) * 100).toFixed(1)}%`
+    : r.noSurvivors ? "undefined — the cohort is empty" : "flat qx scaling matching survivors’ LE";
+  $("tile-pre").textContent = fmt.yrs(r.lePre) + " yrs";
+  $("tile-pre-sub").textContent = scale ? "SSA 2019 + mortality improvement" : "SSA 2019 baseline (static)";
+  $("tile-post").textContent = r.noSurvivors ? "–" : fmt.yrs(r.lePost) + " yrs";
+  $("tile-surv").textContent = fmt.pct1(r.survivorFraction);
+
+  const n = r.d.length;
+  const years = Array.from({ length: n }, (_, i) => i + 1);
+  const tipTitle = (i) => `Year ${i + 1} · Age ${state.focusAge + i}`;
+
+  // Chart 1: f(t)
+  const fHorizon = Math.min(45, n);
+  makeChart($("chart-f"), {
+    xs: years.slice(0, fHorizon),
+    series: [{ name: "Pulled into COVID", color: C.pullfwd, ys: Array.from(r.f).slice(0, fHorizon), area: true }],
+    yMax: 1.0,
+    yTickFormat: (v) => Math.round(v * 100) + "%",
+    tipFormat: (v) => (v * 100).toFixed(1) + "%",
+    tipTitle, xLabel: "Years from end of COVID (2022)",
+    ariaLabel: "Pullforward fraction by projection year",
+  });
+  const pf = fSeg.params;
+  $("f-sub").textContent = !pf.enabled
+    ? `Pullforward is switched OFF for segment "${fSeg.label}" — the focus cohort has no COVID effect.`
+    : r.noSurvivors
+      ? `⚠ 100% of the focus cohort's remaining deaths fall inside the pullforward, so nobody survives COVID and post-COVID results are undefined. Lower the peak below 100% or shorten the horizon.`
+      : `Share of each future year's deaths that instead happened during COVID. Focus cohort (${sexLabel.toLowerCase()} ${state.focusAge}) uses segment "${fSeg.label}".`;
+
+  // Chart 2: mortality multiple
+  const mHorizon = Math.min(45, n);
+  makeChart($("chart-mult"), {
+    xs: years.slice(0, mHorizon),
+    series: [{ name: "Survivor mortality multiple", color: C.survivor, ys: Array.from(r.multiples).slice(0, mHorizon) }],
+    refY: 1.0, refLabel: "baseline = 1.0",
+    yTickFormat: (v) => v.toFixed(2),
+    tipFormat: (v) => v.toFixed(3) + "×",
+    tipTitle, xLabel: "Years from end of COVID (2022)",
+    ariaLabel: "Mortality multiple by projection year",
+  });
+
+  // Chart 3: d(t) vs g(t)
+  makeChart($("chart-dist"), {
+    xs: years,
+    series: [
+      { name: "Original cohort d(t)", color: C.baseline, ys: Array.from(r.d) },
+      { name: "COVID survivors g(t)", color: C.survivor, ys: Array.from(r.g) },
+    ],
+    yTickFormat: (v) => (v * 100).toFixed(1) + "%",
+    tipFormat: (v) => (v * 100).toFixed(2) + "%",
+    tipTitle, xLabel: "Years from end of COVID (2022)",
+    ariaLabel: "Death distributions for original cohort and survivors",
+  });
+  $("dist-legend").innerHTML =
+    `<span><span class="chip" style="background:${C.baseline}"></span>Original cohort d(t) &mdash; baseline</span>` +
+    `<span><span class="chip" style="background:${C.survivor}"></span>COVID survivors g(t)</span>`;
+
+  // Detail data table
+  let dt = "<tr><th>Year</th><th>Age</th><th>Pulled fwd f(t)</th><th>Baseline qx</th><th>Survivor qx</th><th>Multiple</th></tr>";
+  for (let i = 0; i < Math.min(20, n); i++) {
+    dt += `<tr><td>${i + 1}</td><td>${state.focusAge + i}</td><td>${(r.f[i] * 100).toFixed(1)}%</td>` +
+      `<td>${r.qxVec[i].toFixed(4)}</td>` +
+      `<td>${Number.isFinite(r.effQx[i]) ? r.effQx[i].toFixed(4) : "–"}</td>` +
+      `<td>${Number.isFinite(r.multiples[i]) ? r.multiples[i].toFixed(3) : "–"}</td></tr>`;
+  }
+  $("detail-table").innerHTML = dt;
+
+  // Summary table
+  const sexes = ["male", "female"].filter((sx) => state.viewSexes[sx]);
+  let st = "<tr><th>Cohort</th><th>Segment</th><th>LE before</th><th>LE after</th><th>LE change</th><th>Change %</th><th>Equiv. mult.</th><th>Survived COVID</th></tr>";
+  if (!sexes.length || !state.tableAges.length) {
+    st += `<tr><td colspan="8" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
+  }
+  sexes.forEach((sex, si) => {
+    state.tableAges.forEach((age, i) => {
+      const seg = findSegmentIn(state.segments, age, sex);
+      const row = runCohort(age, sex, seg.params, scale);
+      const isFocus = age === state.focusAge && sex === state.focusSex;
+      const cls = [isFocus ? "focus-row" : "", i === 0 && si > 0 ? "sex-break" : ""].join(" ").trim();
+      st += `<tr${cls ? ` class="${cls}"` : ""}><td>${sex === "male" ? "Male" : "Female"} ${age}</td>` +
+        `<td style="text-align:left;color:var(--ink-3)">${seg.label}${seg.params.enabled ? "" : " (off)"}</td>` +
+        `<td>${fmt.yrs(row.lePre)}</td><td>${row.noSurvivors ? "–" : fmt.yrs(row.lePost)}</td>` +
+        `<td class="delta">${row.noSurvivors ? "–" : fmt.delta(row.leChange)}</td>` +
+        `<td>${row.noSurvivors ? "–" : (row.leChange / row.lePre * 100).toFixed(1) + "%"}</td>` +
+        `<td>${Number.isFinite(row.equivMult) ? (row.equivMult * 100).toFixed(1) + "%" : "–"}</td>` +
+        `<td>${fmt.pct1(row.survivorFraction)}</td></tr>`;
+    });
+  });
+  $("summary-table").innerHTML = st;
+
+  // Readouts
+  const p = activeSegment().params;
+  $("peak-out").textContent = fmt.pct0(p.peakFraction);
+  $("grade-out-out").textContent = p.gradeOutYears === 0 ? "off (0)" : p.gradeOutYears + " yrs";
+  $("decay-out").textContent = p.decayRate.toFixed(2);
+  $("decay-hint").textContent = `Fat tail, no hard cutoff. Effect halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} years.`;
+  $("cohort-out").textContent = `${sexLabel}, age ${state.focusAge}`;
+  $("seg-focus-hint").textContent = `Focus cohort (${sexLabel} ${state.focusAge}) belongs to segment "${fSeg.label}".`;
+  $("preset-desc").textContent = PRESETS[state.preset].desc;
+  $("seg-badge").textContent = state.segments.length + (state.segments.length === 1 ? " segment" : " segments");
+
+  // CLI command (reproduces the FOCUS cohort; each segment is its own run)
+  const imp = impCliFlags();
+  const impFlags = imp.flags;
+  const impNote = imp.note;
+  let cmd, note = "";
+  if (state.preset !== "custom" && impFlags.length === 0) {
+    cmd = `python scenarios.py ${state.preset}`;
+    note = "Runs this exact named scenario from config.py (with the default 1%/yr improvement).";
+  } else if (state.preset !== "custom") {
+    cmd = ["python sensitivity.py", `--base ${state.preset}`, ...impFlags].join(" ");
+    note = "Runs the named preset with your improvement setting." + impNote;
+  } else {
+    const parts = ["python sensitivity.py", `--peak ${pf.enabled ? pf.peakFraction : 0}`];
+    if (pf.shape === "exponential") {
+      parts.push("--shape exponential", `--decay ${pf.decayRate}`);
+    } else if (pf.shape === "step") {
+      parts.push("--shape step", `--grade-out ${pf.gradeOutYears}`);
+    } else {
+      parts.push(`--grade-out ${pf.gradeOutYears}`);
+    }
+    parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...impFlags);
+    cmd = parts.join(" ");
+    note = "Reproduces the focus cohort (each cohort only depends on its own segment's inputs). "
+      + "Re-run with other --age/--sex values and that segment's inputs to cover the rest." + impNote;
+  }
+  $("cli-cmd").textContent = cmd;
+  $("cli-note").textContent = note;
+}
+
+/* ============ Excess-mode rendering ============ */
+function renderExcess() {
+  const scale = activeScale();
+  const ex = state.ex;
+  const bands = ex.bandsPct.map((v) => v / 100);
+  const gx = ex.spread ? ex.spreadYears : 0;
+  const V = ex.valuationYear;
+  const sexLabel = state.focusSex === "male" ? "Male" : "Female";
+  const cache = {};
+  const r = runExcessCohort(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, V, gx);
+
+  // Tiles
+  $("ex-tile-peak").textContent = Number.isFinite(r.peak) ? (r.peak * 100).toFixed(1) + "%" : "–";
+  $("ex-tile-peak-sub").innerHTML = r.infeasible
+    ? '<span class="warnline">⚠ over 100% — infeasible; capped at 100%</span>'
+    : "solved: share of 2021 deaths that happened in 2020 instead";
+  $("ex-tile-gain-label").textContent = `LE gain at ${V}`;
+  $("ex-tile-gain").textContent = r.valid ? fmt.delta3(r.leChange) + " yrs" : "–";
+  $("ex-tile-gain-sub").textContent = r.valid
+    ? `for a ${sexLabel.toLowerCase()} aged ${r.ageAtValuation} in ${V}, vs no COVID`
+    : "no cohort members alive at the valuation year";
+  $("ex-tile-mult").textContent = Number.isFinite(r.equivMult) ? (r.equivMult * 100).toFixed(2) + "%" : "–";
+  $("ex-tile-base-label").textContent = `Baseline LE in ${V}`;
+  $("ex-tile-base").textContent = r.valid ? fmt.yrs(r.leBase) + " yrs" : "–";
+  $("ex-tile-base-sub").textContent = r.valid ? `survivors: ${fmt.yrs(r.leSurv)} yrs` : "";
+  $("ex-tile-x").textContent = (r.X * 100).toFixed(2) + "%";
+  $("ex-tile-x-sub").textContent = `of the 2020 cohort — ${(r.E * 100).toFixed(0)}% of one year's deaths`;
+  $("ex-tile-alive-label").textContent = `Alive in ${V} vs baseline`;
+  $("ex-tile-alive").textContent = r.valid ? (r.aliveVsBaseline * 100).toFixed(2) + "%" : "–";
+
+  // Chart 1: trajectory at the focus age, 2010–2035
+  const traj = mortalityTrajectory(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, gx, V, 2010, 2035, cache);
+  makeChart($("chart-traj"), {
+    xs: traj.years,
+    series: [
+      { name: "Baseline (no COVID)", color: C.baseline, ys: traj.base },
+      { name: "With COVID", color: C.pullfwd, ys: traj.covid },
+    ],
+    vlineX: V, vlineLabel: "valuation " + V,
+    yTickFormat: (v) => (v * 100).toFixed(1) + "%",
+    tipFormat: (v) => (v * 100).toFixed(3) + "%",
+    tipTitle: (i) => `${traj.years[i]} · age ${state.focusAge}`,
+    xLabel: "Calendar year",
+    ariaLabel: "Mortality trajectory with and without COVID",
+  });
+  $("ex-traj-title").textContent = `Mortality trajectory at age ${state.focusAge} (${sexLabel.toLowerCase()}), with and without COVID`;
+  $("ex-traj-sub").textContent = `Death rate of ${state.focusAge}-year-olds in each calendar year: the SSA 2019 table carried back to 2010 and forward to 2035 with the improvement scale. The COVID line spikes in 2020 (the excess) and runs below baseline while the harvesting plays out — each post-2020 year reflects the cohort that is ${state.focusAge} in that year.`;
+  $("ex-traj-legend").innerHTML =
+    `<span><span class="chip" style="background:${C.baseline}"></span>Baseline (no COVID)</span>` +
+    `<span><span class="chip" style="background:${C.pullfwd}"></span>With COVID excess + harvesting</span>`;
+
+  // Chart 2: solved f(t) by calendar year (focus cohort)
+  const fYears = [], fVals = [];
+  for (let t = 1; t <= Math.min(ex.gradeOut + 1, r.n - 1); t++) { fYears.push(COVID_YEAR + t); fVals.push(r.f[t]); }
+  makeChart($("chart-fcal"), {
+    xs: fYears,
+    series: [{ name: "Pulled into 2020", color: C.pullfwd, ys: fVals, area: true }],
+    yTickFormat: (v) => (v * 100).toFixed(1) + "%",
+    tipFormat: (v) => (v * 100).toFixed(2) + "%",
+    tipTitle: (i) => `${fYears[i]} · age ${state.focusAge + (fYears[i] - COVID_YEAR)}`,
+    xLabel: "Calendar year",
+    ariaLabel: "Solved pullforward share by calendar year",
+  });
+  $("ex-f-sub").innerHTML = (r.infeasible
+    ? `<span class="warnline">⚠ Infeasible: the assumed excess exceeds all deaths available within ${ex.gradeOut} years — repaying it would take ${(r.peak * 100).toFixed(0)}% of 2021's deaths. The pullforward was capped at 100% and ${(r.shortfall * 100).toFixed(2)}% of the cohort stays unrepaid; lengthen the grade-out or lower the excess.</span> `
+    : "") +
+    `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020): the 2021 peak is solved so the harvested deaths repay the 2020 excess exactly, then grades linearly to zero over ${ex.gradeOut} years. Because the cohort ages into higher mortality, the same borrowed deaths are an ever-smaller share of each year's death count.`;
+
+  // Chart 3: mortality multiple by calendar year (focus cohort)
+  const mEnd = Math.min(r.n - 1, Math.max(15, ex.gradeOut + 3, gx + 3));
+  const mYears = [], mVals = [];
+  for (let t = 0; t <= mEnd; t++) { mYears.push(COVID_YEAR + t); mVals.push(r.multiple[t]); }
+  makeChart($("chart-multcal"), {
+    xs: mYears,
+    series: [{ name: "Mortality multiple", color: C.survivor, ys: mVals }],
+    refY: 1.0, refLabel: "baseline = 1.0",
+    vlineX: V, vlineLabel: "valuation " + V,
+    yTickFormat: (v) => v.toFixed(2),
+    tipFormat: (v) => v.toFixed(3) + "×",
+    tipTitle: (i) => `${mYears[i]} · age ${state.focusAge + i}`,
+    xLabel: "Calendar year",
+    ariaLabel: "Mortality multiple by calendar year",
+  });
+
+  // Summary table (ages are ages IN 2020)
+  const sexes = ["male", "female"].filter((sx) => state.viewSexes[sx]);
+  let st = `<tr><th>Cohort (2020)</th><th>Age ${V}</th><th>Excess</th><th>Pulled from 2021</th><th>Alive vs base</th><th>LE base</th><th>LE surv</th><th>LE gain</th><th>Equiv. mult.</th></tr>`;
+  if (!sexes.length || !state.tableAges.length) {
+    st += `<tr><td colspan="9" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
+  }
+  sexes.forEach((sex, si) => {
+    state.tableAges.forEach((age, i) => {
+      const row = runExcessCohort(age, sex, scale, bands, ex.gradeOut, V, gx);
+      const isFocus = age === state.focusAge && sex === state.focusSex;
+      const cls = [isFocus ? "focus-row" : "", i === 0 && si > 0 ? "sex-break" : ""].join(" ").trim();
+      st += `<tr${cls ? ` class="${cls}"` : ""}><td>${sex === "male" ? "Male" : "Female"} ${age}</td>` +
+        `<td>${row.ageAtValuation}</td>` +
+        `<td>${(row.E * 100).toFixed(0)}%</td>` +
+        `<td>${Number.isFinite(row.peak) ? (row.peak * 100).toFixed(1) + "%" : "–"}${row.infeasible ? " ⚠" : ""}</td>` +
+        `<td>${row.valid ? (row.aliveVsBaseline * 100).toFixed(2) + "%" : "–"}</td>` +
+        `<td>${row.valid ? fmt.yrs(row.leBase) : "–"}</td><td>${row.valid ? fmt.yrs(row.leSurv) : "–"}</td>` +
+        `<td class="delta">${row.valid ? fmt.delta3(row.leChange) : "–"}</td>` +
+        `<td>${Number.isFinite(row.equivMult) ? (row.equivMult * 100).toFixed(2) + "%" : "–"}</td></tr>`;
+    });
+  });
+  $("ex-summary-table").innerHTML = st;
+  $("ex-summary-sub").textContent = `Ages are ages in 2020; each cohort uses its own band's excess. "Pulled from 2021" is the solved peak pullforward; ⚠ marks infeasible rows (capped at 100%). LE columns stand at ${V}. The highlighted row is your focus cohort.`;
+
+  // Readouts + view bar
+  $("ex-grade-out").textContent = ex.gradeOut + " yrs";
+  $("cohort-out").textContent = `${sexLabel}, ${state.focusAge} in 2020 (${r.ageAtValuation} in ${V})`;
+
+  // CLI
+  const imp = impCliFlags();
+  const parts = ["python excess.py"];
+  const uniform = ex.bandsPct.every((v) => v === ex.bandsPct[0]);
+  if (uniform) parts.push(`--excess-all ${ex.bandsPct[0]}`);
+  else parts.push(`--excess "${ex.bandsPct.join(",")}"`);
+  parts.push(`--grade-out ${ex.gradeOut}`, `--valuation-year ${V}`);
+  if (gx >= 2) parts.push(`--grade-excess ${gx}`);
+  parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...imp.flags);
+  $("cli-cmd").textContent = parts.join(" ");
+  $("cli-note").textContent = "Reproduces the focus cohort and the trajectory at this age; drop --age/--sex for the full table." + imp.note;
+}
+
+/* ============ Wiring ============ */
+function rebuildSegOptions() {
+  const sel = $("seg-select");
+  sel.innerHTML = "";
+  state.segments.forEach((s, i) => {
+    const o = document.createElement("option");
+    o.value = i;
+    o.textContent = s.label + (s.params.enabled ? "" : "  (off)");
+    sel.appendChild(o);
+  });
+  if (state.activeSegIdx >= state.segments.length) state.activeSegIdx = 0;
+  sel.value = state.activeSegIdx;
+}
+
+function syncControls() {
+  $("preset").value = state.preset;
+  rebuildSegOptions();
+
+  const p = activeSegment().params;
+  $("seg-enabled").checked = p.enabled;
+  $("peak").value = p.peakFraction;
+  $("grade-out").value = p.gradeOutYears;
+  $("decay").value = p.decayRate;
+  const usesGradeOut = p.shape === "linear" || p.shape === "step";
+  $("shape-linear").setAttribute("aria-pressed", p.shape === "linear");
+  $("shape-step").setAttribute("aria-pressed", p.shape === "step");
+  $("shape-exp").setAttribute("aria-pressed", p.shape === "exponential");
+  $("shape-hint").textContent = p.shape === "linear"
+    ? "Linear: effect starts at the peak and fades to zero at the grade-out horizon."
+    : p.shape === "step"
+      ? "Step: the FULL peak effect applies to every year inside the horizon, then drops to zero. Peak 100% = everyone who would have died within the horizon died during COVID."
+      : "Exponential: fat tail — the effect decays but never fully reaches zero.";
+  $("grp-linear").classList.toggle("hidden", !usesGradeOut);
+  $("grp-exp").classList.toggle("hidden", usesGradeOut);
+  $("grade-out-hint").textContent = p.shape === "step"
+    ? "The full peak effect applies to every year up to this horizon; deaths further out were untouched. 0 = no pullforward for this segment."
+    : "Deaths this many years out (or further) were untouched by COVID; on the way there the effect ramps down linearly from the peak. 0 = no pullforward for this segment; beyond ~100 the horizon exceeds the cohorts’ remaining lifetimes.";
+
+  // Segmentation definition
+  $("segdef-bysex").checked = state.seg.bySex;
+
+  // Output view
+  $("sex-male").setAttribute("aria-pressed", state.focusSex === "male");
+  $("sex-female").setAttribute("aria-pressed", state.focusSex === "female");
+  $("focus-age").value = state.focusAge;
+  $("view-male").checked = state.viewSexes.male;
+  $("view-female").checked = state.viewSexes.female;
+
+  // Excess-calibration controls
+  $("ex-val").value = state.ex.valuationYear;
+  $("ex-grade").value = state.ex.gradeOut;
+  $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
+  $("ex-spread").checked = state.ex.spread;
+  $("ex-spread-years-row").classList.toggle("hidden", !state.ex.spread);
+  $("ex-spread-years").value = state.ex.spreadYears;
+
+  // Mortality improvement controls
+  $("imp-enabled").checked = state.impEnabled;
+  $("imp-body").classList.toggle("hidden", !state.impEnabled);
+  $("imp-off-hint").classList.toggle("hidden", state.impEnabled);
+  $("imp-rate").value = state.impRatePct;
+  $("imp-rate").disabled = !!state.impScale;
+  $("imp-clear").classList.toggle("hidden", !state.impScale);
+  if (state.impScale) {
+    const s = state.impScale;
+    const desc = s.mode === "1d"
+      ? "1D per-age scale"
+      : `2D age × year scale (${s.years[0]}–${s.years[s.years.length - 1]}, held constant outside)`;
+    $("imp-status").textContent = `${state.impFileName}: ${desc}. The flat rate is ignored while a file is loaded.`;
+  } else {
+    $("imp-status").textContent = "Using the flat rate. Import a CSV for age-varying (1D) or age × year (2D) rates.";
+  }
+}
+
+function markCustom() { state.preset = "custom"; }
+function activeParams() { return activeSegment().params; }
+
+function setMode(m) {
+  state.mode = m;
+  $("mode-direct").setAttribute("aria-pressed", m === "direct");
+  $("mode-excess").setAttribute("aria-pressed", m === "excess");
+  $("mode-hint").textContent = m === "direct"
+    ? "Assume the pullforward curve f(t) directly — the original model."
+    : "Assume each age band's cumulative COVID excess deaths; the model solves the implied pullforward, then values the remaining effect at your chosen year.";
+  document.querySelectorAll(".mode-direct").forEach((el) => el.classList.toggle("hidden", m !== "direct"));
+  document.querySelectorAll(".mode-excess").forEach((el) => el.classList.toggle("hidden", m !== "excess"));
+  $("focus-eyebrow").innerHTML = m === "excess"
+    ? "Focus age &mdash; tiles &amp; charts (age in 2020)"
+    : "Focus cohort &mdash; tiles &amp; charts";
+  syncControls();
+  render();
+}
+
+function parseIntList(text, lo, hi) {
+  return [...new Set(
+    text.split(/[,\s]+/).map((s) => parseInt(s, 10))
+      .filter((n) => Number.isFinite(n) && n >= lo && n <= hi)
+  )].sort((a, b) => a - b);
+}
+
+function init() {
+  const sel = $("preset");
+  for (const key in PRESETS) {
+    const o = document.createElement("option");
+    o.value = key; o.textContent = PRESETS[key].label;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => {
+    state.preset = sel.value;
+    applyPreset(sel.value);
+    $("segdef-cutoffs").value = state.seg.cutoffs.join(", ");
+    syncControls(); render();
+  });
+
+  // Per-segment inputs
+  $("seg-select").addEventListener("change", (e) => { state.activeSegIdx = +e.target.value; syncControls(); render(); });
+  $("seg-enabled").addEventListener("change", (e) => { activeParams().enabled = e.target.checked; markCustom(); syncControls(); render(); });
+  $("shape-linear").addEventListener("click", () => { activeParams().shape = "linear"; markCustom(); syncControls(); render(); });
+  $("shape-step").addEventListener("click", () => { activeParams().shape = "step"; markCustom(); syncControls(); render(); });
+  $("shape-exp").addEventListener("click", () => { activeParams().shape = "exponential"; markCustom(); syncControls(); render(); });
+  $("peak").addEventListener("input", (e) => { activeParams().peakFraction = +e.target.value; markCustom(); render(); });
+  $("grade-out").addEventListener("input", (e) => { activeParams().gradeOutYears = +e.target.value; markCustom(); render(); });
+  $("decay").addEventListener("input", (e) => { activeParams().decayRate = +e.target.value; markCustom(); render(); });
+  $("seg-copy-all").addEventListener("click", () => {
+    const src = activeParams();
+    state.segments.forEach((s) => { s.params = { ...src }; });
+    markCustom(); syncControls(); render();
+    const b = $("seg-copy-all");
+    b.textContent = "Applied to all segments";
+    setTimeout(() => { b.textContent = "Apply these inputs to all segments"; }, 1400);
+  });
+
+  // Model mode
+  $("mode-direct").addEventListener("click", () => setMode("direct"));
+  $("mode-excess").addEventListener("click", () => setMode("excess"));
+
+  // Excess-calibration inputs
+  const bandsBox = $("ex-bands");
+  for (let i = 0; i < N_BANDS; i++) {
+    const lab = document.createElement("label");
+    lab.textContent = bandLabel(i);
+    const inp = document.createElement("input");
+    inp.type = "number"; inp.min = 0; inp.max = 300; inp.step = 5;
+    inp.value = state.ex.bandsPct[i];
+    inp.setAttribute("aria-label", `Cumulative excess for ages ${bandLabel(i)}, percent`);
+    inp.addEventListener("input", () => {
+      const v = parseFloat(inp.value);
+      if (Number.isFinite(v)) { state.ex.bandsPct[i] = Math.max(0, Math.min(300, v)); render(); }
+    });
+    lab.appendChild(inp);
+    bandsBox.appendChild(lab);
+  }
+  $("ex-fill").addEventListener("click", () => {
+    const v = parseFloat($("ex-fill-val").value);
+    if (!Number.isFinite(v)) return;
+    state.ex.bandsPct = new Array(N_BANDS).fill(Math.max(0, Math.min(300, v)));
+    bandsBox.querySelectorAll("input").forEach((inp, i) => { inp.value = state.ex.bandsPct[i]; });
+    render();
+  });
+  $("ex-val").addEventListener("change", (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (Number.isFinite(v)) state.ex.valuationYear = Math.max(2021, Math.min(2039, v));
+    e.target.value = state.ex.valuationYear;
+    render();
+  });
+  $("ex-grade").addEventListener("input", (e) => {
+    state.ex.gradeOut = +e.target.value;
+    $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
+    render();
+  });
+  $("ex-spread").addEventListener("change", (e) => {
+    state.ex.spread = e.target.checked;
+    $("ex-spread-years-row").classList.toggle("hidden", !state.ex.spread);
+    render();
+  });
+  $("ex-spread-years").addEventListener("change", (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (Number.isFinite(v)) state.ex.spreadYears = Math.max(2, Math.min(10, v));
+    e.target.value = state.ex.spreadYears;
+    render();
+  });
+
+  // Segmentation definition
+  $("segdef-apply").addEventListener("click", () => {
+    const cutoffs = parseIntList($("segdef-cutoffs").value, 1, 119);
+    state.seg = { bySex: $("segdef-bysex").checked, cutoffs };
+    $("segdef-cutoffs").value = cutoffs.join(", ");
+    state.segments = buildSegments(state.seg, state.segments);
+    state.activeSegIdx = 0;
+    markCustom(); syncControls(); render();
+  });
+
+  // Output view
+  $("focus-age").addEventListener("input", (e) => { state.focusAge = +e.target.value; render(); });
+  $("sex-male").addEventListener("click", () => { state.focusSex = "male"; syncControls(); render(); });
+  $("sex-female").addEventListener("click", () => { state.focusSex = "female"; syncControls(); render(); });
+  $("view-male").addEventListener("change", (e) => { state.viewSexes.male = e.target.checked; render(); });
+  $("view-female").addEventListener("change", (e) => { state.viewSexes.female = e.target.checked; render(); });
+  $("view-ages").addEventListener("change", (e) => {
+    const ages = parseIntList(e.target.value, 30, 95);
+    state.tableAges = ages;
+    e.target.value = ages.join(", ");
+    render();
+  });
+
+  // Mortality improvement (global)
+  $("imp-enabled").addEventListener("change", (e) => { state.impEnabled = e.target.checked; syncControls(); render(); });
+  $("imp-rate").addEventListener("input", (e) => {
+    const v = parseFloat(e.target.value);
+    if (Number.isFinite(v)) { state.impRatePct = Math.max(-20, Math.min(20, v)); render(); }
+  });
+  $("imp-import").addEventListener("click", () => $("imp-file").click());
+  $("imp-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        state.impScale = parseImprovementCsv(String(reader.result));
+        state.impFileName = file.name;
+      } catch (err) {
+        state.impScale = null; state.impFileName = null;
+        alert("Could not use this CSV:\n" + err.message +
+          "\n\nExpected either a 1D file (age,improvement or age,male_improvement,female_improvement) " +
+          "or a 2D file (age, then 4-digit year columns, optional sex column). " +
+          "Download a template from the sidebar to see the exact format.");
+      }
+      e.target.value = "";
+      syncControls(); render();
+    };
+    reader.readAsText(file);
+  });
+  $("imp-clear").addEventListener("click", () => {
+    state.impScale = null; state.impFileName = null;
+    syncControls(); render();
+  });
+  const downloadCsv = (name, content) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  };
+  $("tmpl-1d").addEventListener("click", (e) => { e.preventDefault(); downloadCsv("improvement_template_1d.csv", templateCsv("1d")); });
+  $("tmpl-2d").addEventListener("click", (e) => { e.preventDefault(); downloadCsv("improvement_template_2d.csv", templateCsv("2d")); });
+
+  // Copy CLI
+  $("copy-cli").addEventListener("click", () => {
+    const text = $("cli-cmd").textContent;
+    const done = () => {
+      $("copy-cli").textContent = "Copied";
+      setTimeout(() => { $("copy-cli").textContent = "Copy command"; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else fallbackCopy(text, done);
+  });
+  function fallbackCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  $("segdef-cutoffs").value = state.seg.cutoffs.join(", ");
+  syncControls(); render();
+}
+init();
+</script>
+
+</body>
+</html>

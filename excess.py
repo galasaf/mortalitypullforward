@@ -1,0 +1,278 @@
+"""
+excess.py - COVID excess-mortality CALIBRATION mode.
+
+Instead of assuming the pullforward directly, start from the cumulative
+excess mortality each age group suffered from COVID (as a % of one normal
+year's deaths for that group, in 5-year bands), attribute it all to 2020,
+and let the model SOLVE the pullforward: the share of 2021's deaths that
+were pulled into 2020, grading linearly to zero over the grade-out horizon.
+Standing at the valuation year (default 2025), it reports the remaining
+mortality dip and the life-expectancy gain for people still alive.
+
+Run `python excess.py` (no arguments) for these worked examples.
+
+----------------------------------------------------------------------------
+BASIC RUNS
+----------------------------------------------------------------------------
+  python excess.py --run                          # all defaults: 50% excess,
+                                                  #   7-yr grade-out, valued 2025
+  python excess.py --excess-all 60 --grade-out 10
+  python excess.py --valuation-year 2027 --age 65 --sex male
+  python excess.py --grade-excess 3               # spread the 2020 excess spike
+                                                  #   linearly over 3 years (visual
+                                                  #   timing; totals unchanged)
+
+----------------------------------------------------------------------------
+PER-BAND EXCESS (21 five-year bands: 0-4, 5-9, ..., 95-99, 100+)
+----------------------------------------------------------------------------
+  python excess.py --excess "30,30,30,30,30,35,35,40,40,45,45,50,50,55,55,60,60,60,55,50,45"
+
+----------------------------------------------------------------------------
+MORTALITY IMPROVEMENT (same flags as sensitivity.py; default flat 1%/yr)
+----------------------------------------------------------------------------
+  python excess.py --run --improvement-rate 0.015
+  python excess.py --run --no-improvement
+  python excess.py --run --improvement-table my_scale.csv
+
+----------------------------------------------------------------------------
+OUTPUT
+----------------------------------------------------------------------------
+  --age / --sex        focus on one cohort (ages are the age IN 2020)
+  --trajectory-age N   age for the printed 2010-2035 trajectory (default 65)
+  --save               write CSVs to output/excess_calibration/
+
+Notes
+-----
+* Harvested deaths come from the cohort AS IT AGES: a 60-year-old's death
+  pulled forward from 2023 would have happened at age 63. Mortality rises
+  with age, so a fixed number of harvested deaths is a shrinking share of
+  each later year's deaths — the solved pullforward percentages are much
+  smaller than the headline excess percentage.
+* The calibration treats all excess deaths as happening in 2020 and years
+  2021+ as pure harvesting (no new excess). --grade-excess only re-times the
+  excess deaths for the trajectory; the harvesting solve is unchanged.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+import pandas as pd
+
+from mortality_model.ssa_table import load_ssa_table
+from mortality_model.improvement import load_improvement_scale
+from mortality_model.excess import (
+    N_BANDS,
+    band_label,
+    default_excess_bands,
+    run_excess_cohort,
+    mortality_trajectory,
+    TRAJECTORY_START,
+    TRAJECTORY_END,
+)
+
+DEFAULT_AGES = [40, 50, 55, 60, 65, 70, 75, 80]  # ages IN 2020
+
+
+def parse_excess(args) -> list[float]:
+    """Build the 21-band excess vector (fractions) from --excess / --excess-all."""
+    if args.excess is not None:
+        parts = [p for p in args.excess.replace(" ", "").split(",") if p != ""]
+        if len(parts) != N_BANDS:
+            bands = ", ".join(band_label(i) for i in range(N_BANDS))
+            print(f"--excess needs exactly {N_BANDS} comma-separated percentages, "
+                  f"one per band:\n  {bands}\nGot {len(parts)} values.")
+            sys.exit(1)
+        vals = [float(p) for p in parts]
+    else:
+        vals = [args.excess_all] * N_BANDS
+    for v in vals:
+        if not (0.0 <= v <= 300.0):
+            print(f"Excess percentages must be between 0 and 300 (got {v}).")
+            sys.exit(1)
+    return [v / 100.0 for v in vals]
+
+
+def build_scale(args):
+    if args.no_improvement:
+        return None
+    rate = args.improvement_rate if args.improvement_rate is not None else 0.01
+    return load_improvement_scale(args.improvement_table, rate)
+
+
+def describe(args, excess_bands) -> str:
+    uniform = len(set(excess_bands)) == 1
+    lines = [
+        f"  Cumulative excess : "
+        + (f"{excess_bands[0] * 100:.0f}% of one year's deaths, all ages"
+           if uniform else "per-band (see --excess)"),
+        f"  Grade-out horizon : {args.grade_out} years (linear to zero, from 2021)",
+        f"  Excess timing     : "
+        + (f"graded linearly to zero over {args.grade_excess} years"
+           if args.grade_excess and args.grade_excess >= 2 else "all in 2020"),
+        f"  Valuation year    : {args.valuation_year}",
+        f"  Improvement       : "
+        + ("OFF (static 2019 table)" if args.no_improvement
+           else (f"from CSV: {args.improvement_table}" if args.improvement_table
+                 else f"flat {(args.improvement_rate if args.improvement_rate is not None else 0.01):.2%}/yr, "
+                      f"anchored to the 2019 table")),
+    ]
+    return "\n".join(lines)
+
+
+def main():
+    p = argparse.ArgumentParser(
+        description="COVID excess-mortality calibration mode.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    p.add_argument("--run", action="store_true",
+                   help="run with all defaults (used when no other flag is given)")
+    p.add_argument("--excess-all", type=float, default=50.0, dest="excess_all",
+                   help="cumulative excess for EVERY band, %% of one-year deaths (default 50)")
+    p.add_argument("--excess",
+                   help=f"{N_BANDS} comma-separated percentages, one per 5-year band "
+                        "(0-4, 5-9, ..., 95-99, 100+)")
+    p.add_argument("--grade-out", type=int, default=7, dest="grade_out",
+                   help="years over which the harvesting grades linearly to zero (default 7)")
+    p.add_argument("--valuation-year", type=int, default=2025, dest="valuation_year",
+                   help="standing point for LE gain / remaining multiples (default 2025)")
+    p.add_argument("--grade-excess", type=int, default=0, dest="grade_excess",
+                   help="spread the 2020 excess spike linearly to zero over N years "
+                        "(0 = all in 2020; affects timing only, totals unchanged)")
+    p.add_argument("--age", type=int, help="focus on one age IN 2020")
+    p.add_argument("--sex", choices=["male", "female"])
+    p.add_argument("--trajectory-age", type=int, dest="trajectory_age",
+                   help="age for the 2010-2035 trajectory table (default: --age or 65)")
+    p.add_argument("--improvement-rate", type=float, dest="improvement_rate",
+                   help="flat annual improvement rate (0.01 = 1%%/yr; default 0.01)")
+    p.add_argument("--improvement-table", dest="improvement_table",
+                   help="path to a 1D or 2D improvement CSV")
+    p.add_argument("--no-improvement", action="store_true", dest="no_improvement")
+    p.add_argument("--save", action="store_true",
+                   help="write CSVs to output/excess_calibration/")
+
+    if len(sys.argv) == 1:
+        print(__doc__)
+        return
+    args = p.parse_args()
+
+    if args.grade_out < 1:
+        print("--grade-out must be at least 1 year.")
+        sys.exit(1)
+
+    excess_bands = parse_excess(args)
+    table = load_ssa_table(None, 119)
+    scale = build_scale(args)
+
+    ages = [args.age] if args.age is not None else DEFAULT_AGES
+    sexes = [args.sex] if args.sex is not None else ["male", "female"]
+
+    print("=" * 78)
+    print("COVID excess-mortality calibration")
+    print(describe(args, excess_bands))
+    print("=" * 78)
+
+    results = []
+    for sex in sexes:
+        for age in ages:
+            results.append(run_excess_cohort(
+                age, sex, table, scale, excess_bands, args.grade_out,
+                args.valuation_year, args.grade_excess,
+            ))
+
+    rows = []
+    any_infeasible = False
+    for r in results:
+        any_infeasible = any_infeasible or r["infeasible"]
+        rows.append({
+            "Sex": r["sex"].capitalize(),
+            "Age 2020": r["age_2020"],
+            f"Age {args.valuation_year}": r["age_at_valuation"],
+            "Excess (%)": round(r["excess_fraction"] * 100, 1),
+            "Pulled from 2021 (%)": round(r["peak"] * 100, 2),
+            "Alive vs baseline (%)": round(r["alive_vs_baseline"] * 100, 2),
+            "LE base (yrs)": round(r["le_base"], 2),
+            "LE surv (yrs)": round(r["le_surv"], 2),
+            "LE gain (yrs)": round(r["le_change"], 3),
+            "Equiv mult (%)": round(r["equiv_mult"] * 100, 2),
+            "!": "INFEASIBLE" if r["infeasible"] else "",
+        })
+    df = pd.DataFrame(rows).set_index(["Sex", "Age 2020"])
+    print(f"\n=== Standing in {args.valuation_year}: survivors vs the no-COVID baseline ===")
+    print(df.to_string())
+    print("\n  Pulled from 2021 (%): the SOLVED peak pullforward -- the share of 2021's")
+    print("  deaths that instead happened in 2020. It is much smaller than the excess %")
+    print("  because the harvested deaths spread over the horizon AND the cohort ages")
+    print("  into higher mortality, so each borrowed death is a smaller share of that")
+    print("  year's (larger) death count.")
+    print("  Alive vs baseline (%): population still alive at the valuation year,")
+    print("  relative to the no-COVID baseline (the not-yet-harvested deficit).")
+    if any_infeasible:
+        print("\n  WARNING - INFEASIBLE rows: the assumed excess exceeds ALL deaths available")
+        print("  inside the grade-out horizon (the solved pullforward would exceed 100% of")
+        print("  2021's deaths). The pullforward was capped at 100%; lengthen --grade-out")
+        print("  or lower the excess for those ages.")
+
+    # Trajectory table
+    traj_age = args.trajectory_age if args.trajectory_age is not None \
+        else (args.age if args.age is not None else 65)
+    trajectories = []
+    for sex in sexes:
+        traj = mortality_trajectory(
+            traj_age, sex, table, scale, excess_bands, args.grade_out,
+            args.grade_excess, args.valuation_year,
+        )
+        trajectories.append(traj)
+        print(f"\n=== Mortality trajectory at age {traj_age}, {sex} "
+              f"({TRAJECTORY_START}-{TRAJECTORY_END}) ===")
+        print(f"  {'Year':>6}  {'Baseline qx':>12}  {'With COVID':>12}  {'Ratio':>7}")
+        for i, y in enumerate(traj["years"]):
+            b, c = traj["baseline_qx"][i], traj["covid_qx"][i]
+            ratio = c / b if b > 0 else float("nan")
+            marker = "  <- excess" if ratio > 1.001 else (" <- harvest" if ratio < 0.999 else "")
+            print(f"  {y:>6}  {b:>12.5f}  {c:>12.5f}  {ratio:>7.3f}{marker}")
+
+    if args.save:
+        folder = os.path.join("output", "excess_calibration")
+        os.makedirs(folder, exist_ok=True)
+        summary = pd.DataFrame([{
+            "sex": r["sex"],
+            "age_2020": r["age_2020"],
+            "age_at_valuation": r["age_at_valuation"],
+            "excess_pct": r["excess_fraction"] * 100,
+            "solved_pull_from_2021_pct": r["peak"] * 100,
+            "infeasible": r["infeasible"],
+            "alive_vs_baseline": r["alive_vs_baseline"],
+            "le_base": r["le_base"],
+            "le_surv": r["le_surv"],
+            "le_gain": r["le_change"],
+            "equiv_flat_qx_multiplier": r["equiv_mult"],
+        } for r in results])
+        path = os.path.join(folder, "summary.csv")
+        summary.to_csv(path, index=False)
+        print(f"\n  Saved: {path}")
+        for r in results:
+            detail = pd.DataFrame({
+                "year": r["years"], "age": r["ages"],
+                "baseline_qx": r["q_base"], "covid_qx": r["q_covid"],
+                "multiple": r["multiple"], "pullforward_f": r["f"],
+                "excess_deaths": r["x_excess"], "harvested_deaths": r["h_harvest"],
+                "baseline_deaths": r["D_base"], "covid_deaths": r["D_covid"],
+                "baseline_alive": r["A_base"][:-1], "covid_alive": r["A_covid"][:-1],
+            })
+            detail.to_csv(os.path.join(
+                folder, f"path_{r['sex']}_age{r['age_2020']}.csv"), index=False)
+        for traj in trajectories:
+            pd.DataFrame({
+                "year": traj["years"],
+                "baseline_qx": traj["baseline_qx"],
+                "covid_qx": traj["covid_qx"],
+            }).to_csv(os.path.join(
+                folder, f"trajectory_{traj['sex']}_age{traj['age']}.csv"), index=False)
+        print(f"  Saved: {folder}/path_*.csv, trajectory_*.csv")
+
+
+if __name__ == "__main__":
+    main()

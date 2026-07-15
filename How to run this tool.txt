@@ -1,0 +1,353 @@
+==========================================================
+ HOW TO RUN THE MORTALITY PULLFORWARD TOOL
+ (step-by-step, no technical knowledge needed)
+==========================================================
+
+WHAT THIS TOOL DOES
+-------------------
+It estimates how much longer COVID survivors are likely to
+live, based on the idea that COVID mostly killed people who
+were already close to dying. You choose the assumptions;
+the tool shows the effect on life expectancy instantly.
+
+
+==========================================================
+ PART 1 — START THE TOOL (the easy way, in your browser)
+==========================================================
+
+Step 1.  Open the folder that contains this file.
+         (It is called "Mortality acceleration".)
+
+Step 2.  Find the file named:  interface.html
+
+Step 3.  Double-click it.
+         It opens in your web browser (Edge or Chrome).
+         Nothing to install — it works offline.
+
+That's it. The tool is now running.
+
+
+==========================================================
+ PART 2 — USE THE TOOL
+==========================================================
+
+The INPUTS are on the LEFT (in a pane with its own scroll
+bar — section headers click open/closed). The VIEW controls
+are at the TOP RIGHT, above the results. Every time you
+change something, the results update instantly.
+
+Step 1.  Pick a scenario from the "Scenario preset" dropdown.
+         Start with "Moderate base (recommended)" — it is the
+         most defensible set of assumptions.
+
+Step 2.  Look at the boxes at the top right.
+         The first green box is the headline answer: how many
+         extra years of life expectancy COVID survivors
+         gained. The second green box is the same effect
+         expressed as an equivalent flat mortality cut.
+
+Step 3.  Choose whose numbers you want to see, in the
+         "Output view" bar above the results:
+         - "Focus cohort": set an age (for example 65) and
+           click Male or Female — the boxes and charts show
+           that person.
+         - "Summary table shows": tick/untick Male/Female and
+           edit the list of ages to control the table rows.
+
+Step 4.  (Optional) Change the assumptions in the left pane.
+         Assumptions are set PER SEGMENT (an age group, and
+         optionally a sex). Pick which segment you are
+         editing in the "Editing segment" dropdown, then:
+
+         - "Pullforward active in this segment":
+           untick to switch the COVID effect OFF for that
+           group only — handy for looking at one group
+           at a time.
+
+         - "Peak fraction" slider:
+           Of the people who would have died in the FIRST year
+           after COVID, what share died during COVID instead?
+           Higher = stronger effect. 0% = no effect.
+
+         - "Grade-out horizon" (0–100):
+           How many years into the future COVID reached.
+           Deaths further out than this were untouched.
+           0 = no pullforward for this segment.
+
+         - "Shape":
+           Linear = the effect starts at the peak and fades
+           to zero at the horizon (halfway there, only half
+           the peak applies).
+           Step = the FULL peak applies to every year inside
+           the horizon, then drops to zero. "X% of everyone
+           who would have died within G years died during
+           COVID" is Step with peak X% and horizon G.
+           Exponential = it fades gradually and never quite
+           reaches zero.
+           (Careful with Step at 100% peak: if the horizon
+           covers someone's whole remaining lifetime, nobody
+           in that group survives COVID, so there is no
+           survivor to measure — the tool shows a warning.)
+
+         - "Apply these inputs to all segments" copies the
+           current segment's settings everywhere.
+
+Step 5.  (Optional) Change HOW the population is segmented,
+         in the "Segmentation" section:
+         - Tick "Separate inputs by sex" for separate
+           male/female assumptions.
+         - Type age cutoffs, e.g. "65" gives <65 and 65+;
+           "65, 75, 85" gives four bands. Empty = one
+           segment for everyone.
+         - Click "Rebuild segments". The new segments appear
+           in the "Editing segment" dropdown, keeping the
+           settings they had where the groups overlap.
+
+Step 6.  Scroll down for more detail:
+         - Three charts showing the assumption and its effect
+           (hover your mouse over them to read exact values)
+         - A table with results for every age/sex you chose,
+           including which segment each row used
+         - "How the model works" — click it to expand a plain-
+           language explanation of the math
+
+TIP: There is no Save button and you cannot break anything.
+     To start over, pick any preset from the dropdown again,
+     or just close the browser tab and double-click
+     interface.html again.
+
+
+==========================================================
+ PART 2B — THE SECOND MODE: CALIBRATE FROM COVID EXCESS
+==========================================================
+
+At the very top of the left pane there is a "Model mode"
+switch with two buttons. The second button, "Calibrate
+from excess", runs the model BACKWARDS from something
+observable: how many extra deaths COVID actually caused.
+
+The idea: you say how large each age group's TOTAL extra
+COVID deaths were, as a percentage of one normal year's
+deaths for that group (50% = the excess equalled half a
+normal year of deaths). All of those deaths are treated
+as happening in 2020. Since the people who died early
+were going to die in later years anyway, the same number
+of deaths must be MISSING from 2021 onward — and they go
+missing from the group AS IT AGES (a 60-year-old's death
+pulled forward from 2023 would have happened at age 63).
+Because death rates rise with age, the borrowed deaths
+are a smaller and smaller share of each later year's
+deaths — so the future effect is milder than the
+headline excess number suggests.
+
+The tool then SOLVES the one unknown: the share of
+2021's deaths that were pulled into 2020 (shown in the
+first green box), fading to zero in a straight line over
+the "Harvest grade-out" years.
+
+WHAT TO SET (left pane, "COVID excess calibration"):
+
+  - "Valuation year" (normally 2025): you are standing at
+    this year. The LE gain and the table show the
+    remaining effect for people still alive at this year.
+
+  - "Harvest grade-out": how many years of future deaths
+    COVID reached into. 7 is a reasonable start.
+
+  - "Cumulative excess by age band": the excess for every
+    5-year age group. They start at 50%; edit any band, or
+    type a number next to "Set all to (%)" and click
+    Apply.
+
+  - "Grade the excess over multiple years" (optional):
+    instead of dumping the whole excess in 2020, spreads
+    the same total over several years, fading to zero
+    (e.g. 50% over 3 years = 25% / 16.7% / 8.3%). This
+    only re-times the spike in the charts; the totals and
+    the solved pullforward do not change.
+
+WHAT YOU GET:
+
+  - Green boxes: the solved "Pulled forward from 2021"
+    share, and the life-expectancy gain at the valuation
+    year for someone still alive then.
+
+  - A chart of the death rate for your focus age from
+    2010 to 2035: the smooth baseline (the mortality
+    table plus yearly improvement) and the COVID line —
+    a spike in 2020, then a few years BELOW the baseline
+    while the borrowed deaths go missing, then back to
+    normal. This is the clearest picture of how COVID
+    bent the mortality trajectory.
+
+  - Charts of the solved pullforward by year and of the
+    survivors' mortality vs baseline by calendar year.
+
+  - The all-cohorts table (ages there are ages IN 2020).
+
+If a warning saying "Infeasible" appears, the excess you
+typed is larger than ALL the deaths available within the
+grade-out horizon — lengthen the horizon or lower the
+excess for that group.
+
+The Python twin of this mode is excess.py — the sidebar
+"Run it in the codebase" box always shows the exact
+command for your current settings, e.g.:
+
+  python excess.py --excess-all 50 --grade-out 7 --valuation-year 2025
+
+
+==========================================================
+ PART 3 — GETTING RESULTS INTO EXCEL (optional)
+==========================================================
+
+The browser tool is for exploring. If you need spreadsheet
+files of the results, use the Python version:
+
+Step 1.  Open the "Mortality acceleration" folder in
+         File Explorer.
+
+Step 2.  Click once in the address bar at the top of the
+         window (where the folder path is shown).
+
+Step 3.  Type the word   cmd   and press Enter.
+         A black window opens. This is normal.
+
+Step 4.  Type the line below exactly and press Enter:
+
+         python scenarios.py moderate_base --save
+
+Step 5.  Wait a few seconds. When it finishes, a folder
+         called "output" appears, containing a folder
+         "moderate_base" with CSV files. Double-click any
+         CSV file to open it in Excel.
+         - summary.csv is the main results table.
+
+To save a different scenario, replace "moderate_base" with
+one of: default, short_harvest, elderly_concentrated,
+long_harvest, exponential_moderate, exponential_long_tail,
+sickest_only, uniform_benchmark
+
+Bonus: in the browser tool, the sidebar box called
+"Run it in the codebase" always shows the exact line to
+type for whatever settings you currently have on screen.
+Click "Copy command", then right-click in the black window
+to paste it.
+
+
+==========================================================
+ PART 4 — MORTALITY IMPROVEMENT
+==========================================================
+
+The tool assumes mortality IMPROVES by 1% per year at
+every age (people keep getting healthier over time, as
+they historically have). The results also show an
+"Equivalent mortality multiplier": the single flat
+percentage adjustment to the whole mortality table that
+would produce the same life-expectancy gain the survivors
+got. For example 92.0% means "survivors gained as much
+life expectancy as if mortality were cut 8% at every age".
+
+IN THE BROWSER TOOL: use the "Mortality improvement" box
+in the sidebar — untick it to turn improvement off, type a
+different flat rate, or click "Import CSV…" to load your
+own rates. The "Templates" links download a pre-filled
+file you can edit in Excel (save as CSV, then import it).
+The equivalent multiplier appears as the second green tile
+and as a column in the all-cohorts table.
+
+IN THE PYTHON VERSION:
+
+To change the improvement assumption, use the black window
+(see Part 3 for how to open it):
+
+  python sensitivity.py --improvement-rate 0.015
+      ...uses 1.5% per year instead of 1%.
+
+  python sensitivity.py --no-improvement
+      ...turns improvement off (the old behavior).
+
+To use your OWN improvement rates from Excel:
+
+Step 1.  Type ONE of these and press Enter:
+           python sensitivity.py --improvement-template 1d
+           python sensitivity.py --improvement-template 2d
+         (1d = one rate per age; 2d = a rate per age AND
+         per calendar year.)
+
+Step 2.  A file appears in the folder, e.g.
+         improvement_template_1d.csv. Double-click it to
+         open in Excel. Every cell is pre-filled with 0.01
+         (meaning 1% per year). Edit the numbers you want.
+         IMPORTANT: use decimals — 0.01 means 1%, do NOT
+         type 1 to mean 1%.
+
+Step 3.  Save in Excel. If Excel asks about keeping the
+         CSV format, click "Yes" / "Keep current format".
+
+Step 4.  Run the model with your file:
+           python sensitivity.py --improvement-table improvement_template_1d.csv
+
+
+==========================================================
+ PART 5 — PUTTING THE TOOL ON THE INTERNET (iWebFusion)
+==========================================================
+
+The tool is one self-contained file with no server code,
+so it works on iWebFusion shared hosting as-is. A ready-
+to-upload copy already exists in this folder:
+
+    deploy\index.html
+
+Step 1.  Log in to cPanel. Either:
+         - go to  https://yourdomain.com/cpanel   (or
+           https://yourdomain.com:2083), or
+         - log in at my.iwebfusion.net and open cPanel
+           from there. Login details are in the iWebFusion
+           welcome email (check spam if you can't find it;
+           you can reset the password from the client
+           portal).
+
+Step 2.  In cPanel, under "Files", click "File Manager".
+
+Step 3.  Open the  public_html  folder (the "Web Root").
+
+Step 4.  Click "Upload" in the top toolbar and select
+         deploy\index.html from this project folder.
+
+Step 5.  Done — the tool is live at  https://yourdomain.com
+
+TO PUT IT ON A SUB-PAGE INSTEAD of the homepage (e.g. if
+the domain already hosts something): in File Manager,
+create a folder inside public_html named e.g.
+"pullforward", and upload index.html into that folder.
+The tool is then at  https://yourdomain.com/pullforward/
+
+WHEN THE MODEL CHANGES: deploy\index.html is a copy of
+interface.html. After interface.html is updated, copy it
+over deploy\index.html again and re-upload (uploading a
+file with the same name in File Manager overwrites the
+old one).
+
+Privacy note: everything runs in the visitor's browser.
+Nothing typed into the page (or any imported CSV) is sent
+to the server.
+
+
+==========================================================
+ IF SOMETHING GOES WRONG
+==========================================================
+
+- Double-clicking interface.html opens Notepad or another
+  program instead of a browser:
+  Right-click the file, choose "Open with", then pick
+  Microsoft Edge or Google Chrome.
+
+- The black window says "python is not recognized":
+  Python is not installed or not set up on this computer.
+  You can still use the browser tool (Part 1) — it does not
+  need Python at all.
+
+- The page looks squashed or cut off:
+  Make the browser window bigger, or press Ctrl and - (minus)
+  to zoom out.

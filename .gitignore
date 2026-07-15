@@ -1,0 +1,14 @@
+# Generated results
+output/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local Claude Code settings and memory (machine-specific)
+.claude/
+memory/
+
+# Personal working notes (add back deliberately if you want them public)
+goal.txt
+user_queries.txt
