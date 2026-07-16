@@ -338,15 +338,13 @@
         <summary>Excess by age band <span class="info" tabindex="0" id="bands-hint">i</span> <span class="seg-badge" id="excess-status">implied</span></summary>
         <div class="grp-body">
           <div class="ctl-row">
-            <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Set all to (%)</label>
+            <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Fill with (%)
+              <span class="info" tabindex="0" id="ex-fill-hint" data-tip="'Apply to All' fills every cell (both sexes, all bands). 'Apply to Segment' fills only the bands covered by the segment currently selected under 'Editing segment' — its sex column(s) only, for sex-split segments. The orange lines in the grid mark the segment boundaries.">i</span></label>
             <input type="number" id="ex-fill-val" min="0" max="1000" step="5" value="50">
-            <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
           </div>
           <div class="ctl-row" style="margin-top:6px">
-            <label for="ex-segfill-val" style="font-size:13px; white-space:nowrap">Fill segment (%)
-              <span class="info" tabindex="0" id="ex-segfill-hint" data-tip="Fills only the bands covered by the segment currently selected under 'Editing segment' (its sex column(s) only, for sex-split segments). The orange lines in the grid mark the segment boundaries.">i</span></label>
-            <input type="number" id="ex-segfill-val" min="0" max="1000" step="5" value="50">
-            <button type="button" class="copy-btn" id="ex-segfill" style="margin-top:0">Apply</button>
+            <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0; flex:1">Apply to All</button>
+            <button type="button" class="copy-btn" id="ex-segfill" style="margin-top:0; flex:1">Apply to Segment</button>
           </div>
           <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band and sex"></div>
         </div>
@@ -1780,7 +1778,7 @@ function init() {
     render();
   });
   $("ex-segfill").addEventListener("click", () => {
-    const v = parseFloat($("ex-segfill-val").value);
+    const v = parseFloat($("ex-fill-val").value);
     if (!Number.isFinite(v)) return;
     const val = Math.max(0, Math.min(1000, v));
     takeoverExcess();   // untouched cells keep their current (implied) values

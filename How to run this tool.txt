@@ -184,10 +184,11 @@ WHAT TO SET:
     input): the excess for every 5-year age group, with
     separate Male and Female columns (rows = age bands).
     Orange lines mark where your segment boundaries fall.
-    All cells start at 50%; edit any cell, use "Set all
-    to (%)" for everything, or "Fill segment (%)" to fill
-    only the bands covered by the segment you are editing
-    (its sex column(s) only, if segments are sex-split).
+    All cells start at 50%; edit any cell, or type a value
+    in "Fill with (%)" and click "Apply to All" (every
+    cell) or "Apply to Segment" (only the bands covered by
+    the segment you are editing; its sex column(s) only,
+    if segments are sex-split).
 
   - Everything else is THE SAME controls as Part 2 and
     applies here too:
