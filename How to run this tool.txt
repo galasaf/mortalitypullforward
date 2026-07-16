@@ -32,9 +32,11 @@ That's it. The tool is now running.
 ==========================================================
 
 The INPUTS are on the LEFT (in a pane with its own scroll
-bar — section headers click open/closed). The VIEW controls
-are at the TOP RIGHT, above the results. Every time you
-change something, the results update instantly.
+bar — section headers click open/closed). Small (i) icons
+next to the inputs show help when you hover over them. The
+VIEW controls are at the TOP RIGHT, above the results.
+Every time you change something, the results update
+instantly.
 
 ONE MODEL, TWO WAYS IN. The extra deaths COVID caused in
 2020 and the deaths that go missing from later years are
@@ -45,7 +47,7 @@ shows live derived numbers in gray italics):
   - Drag the "Peak fraction" slider (this Part): the peak
     is the input, and the excess grid shows the cumulative
     excess deaths it implies.
-  - Edit the "Cumulative excess by age band" grid
+  - Edit the "Excess by age band" grid
     (Part 2B): the excess is the input, and the peak
     becomes solved.
 There is no mode switch — just edit the side you want to
@@ -59,15 +61,18 @@ Step 1.  Pick a scenario from the "Scenario preset" dropdown.
          most defensible set of assumptions.
 
 Step 2.  Look at the boxes at the top right.
-         The first green box is the pullforward peak: the
-         share of 2021's deaths that happened in 2020
-         instead. The second green box is the headline
-         answer: the life expectancy gained by people still
+         The first green box is the KEY output: the
+         equivalent mortality multiplier — the single flat
+         adjustment to the whole mortality table that
+         matches the survivors' life expectancy (99.5% =
+         a uniform 0.5% mortality cut). The second green
+         box is the life expectancy gained by people still
          alive at the valuation year (2025 by default —
-         change it in "Timing & valuation"). Another box
-         shows the cumulative excess deaths your assumption
-         IMPLIES — compare it with the ~50% actually
-         observed to sanity-check the assumption.
+         change it at the very top of the sidebar). Other
+         boxes show the pullforward peak and the cumulative
+         excess deaths your assumption IMPLIES — compare
+         that with the ~50% actually observed to
+         sanity-check the assumption.
 
 Step 3.  Choose whose numbers you want to see, in the
          "Output view" bar above the results:
@@ -82,7 +87,7 @@ Step 4.  (Optional) Change the assumptions in the left pane.
          optionally a sex). Pick which segment you are
          editing in the "Editing segment" dropdown, then:
 
-         - "Pullforward active in this segment":
+         - "COVID effect active":
            untick to switch the COVID effect OFF for that
            group only — handy for looking at one group
            at a time.
@@ -127,7 +132,7 @@ Step 5.  (Optional) Change HOW the population is segmented,
            settings they had where the groups overlap.
 
 Step 6.  Scroll down for more detail:
-         - Three charts showing the assumption and its effect
+         - Four charts showing the assumption and its effect
            (hover your mouse over them to read exact values)
          - A table with results for every age/sex you chose,
            including which segment each row used
@@ -144,7 +149,7 @@ TIP: There is no Save button and you cannot break anything.
  PART 2B — THE OTHER WAY IN: SOLVE FROM EXCESS DEATHS
 ==========================================================
 
-Editing the "Cumulative excess by age band" grid runs the
+Editing the "Excess by age band" grid runs the
 same model BACKWARDS from something observable: how many
 extra deaths COVID actually caused. The moment you type in
 any band (or click "Set all"), the excess becomes the
@@ -168,14 +173,14 @@ deaths — so the future effect is milder than the
 headline excess number suggests.
 
 The tool then SOLVES the one unknown: the share of
-2021's deaths that were pulled into 2020 (shown in the
-first green box). There are two SEPARATE toggles for how
+2021's deaths that were pulled into 2020 (the "Pulled
+forward from 2021" box). There are two SEPARATE toggles for how
 this all grades away over time — one for the pullforward
 (repayment) side, one for the excess (spike) side.
 
 WHAT TO SET:
 
-  - "Cumulative excess by age band" (this direction's own
+  - "Excess by age band" (this direction's own
     input): the excess for every 5-year age group. They
     start at 50%; edit any band, or type a number next to
     "Set all to (%)" and click Apply.
@@ -195,13 +200,13 @@ WHAT TO SET:
       * "Segmentation" — age cutoffs / by-sex split apply
         in both directions; unticking "COVID effect active"
         for a segment zeroes that group's excess.
-      * "Valuation year" (in "Timing & valuation", normally
-        2025): you are standing at this year. The LE gain
+      * "Valuation year" (at the very top of the sidebar,
+        normally 2025): you are standing at this year. The LE gain
         and the table show the remaining effect for people
         still alive at this year.
 
-  - "How the excess is timed across years" (in "Timing &
-    valuation"; applies in BOTH directions of the model):
+  - "Excess timing across years" (its own sidebar section;
+    applies in BOTH directions of the model):
     three buttons, completely independent of the
     pullforward shape — this only controls WHEN the
     excess deaths happened, not how they get repaid.

@@ -138,6 +138,24 @@
   input[type="range"].derived { accent-color: var(--ink-3); }
   .seg-badge.derived-badge { background: #EDF0F4; color: var(--ink-3); }
 
+  /* ---------- Hover help (info icons + floating tip) ---------- */
+  .info {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%; flex: none;
+    background: var(--line); color: var(--ink-2);
+    font-size: 10px; font-weight: 700; font-style: normal;
+    cursor: help; vertical-align: 1px; text-transform: none; letter-spacing: 0;
+    user-select: none; margin-left: 4px;
+  }
+  .info:hover, .info:focus-visible { background: var(--ink-3); color: #fff; }
+  #tipbox {
+    position: fixed; z-index: 60; display: none; pointer-events: none;
+    max-width: 300px; background: var(--ink); color: #fff;
+    border-radius: 6px; padding: 8px 11px;
+    font-size: 12px; line-height: 1.5; font-weight: 400;
+    letter-spacing: 0; text-transform: none; white-space: normal;
+  }
+
   /* ---------- Output view bar ---------- */
   .outview { padding: 14px 18px; }
   .ov-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
@@ -227,72 +245,27 @@
     <aside class="controls card" aria-label="Model inputs">
 
       <details class="ctl-group" open>
+        <summary>Valuation year</summary>
+        <div class="grp-body">
+          <div class="ctl-row">
+            <label for="ex-val" style="font-size:13px">Standing at year
+              <span class="info" tabindex="0" data-tip="You are standing at this year: the LE tiles and the summary table condition on being alive then and show the remaining effect. The excess deaths land in 2020 (or spread per the excess timing below); harvesting starts in 2021.">i</span></label>
+            <input type="number" id="ex-val" min="2021" max="2039" step="1" value="2025"
+                   aria-label="Valuation year: standing point for the remaining effect">
+          </div>
+        </div>
+      </details>
+
+      <details class="ctl-group" open>
         <summary>Scenario preset</summary>
         <div class="grp-body">
           <select id="preset" aria-label="Scenario preset"></select>
           <p class="hint" id="preset-desc"></p>
-          <p class="hint hidden" id="preset-driver-note">The excess is currently the input, so the preset&rsquo;s peak is ignored (the peak is solved); its segments and grade-out shapes still apply. Picking a preset makes the peak the input again.</p>
         </div>
       </details>
 
       <details class="ctl-group" open>
-        <summary>Pullforward inputs <span class="seg-badge" id="seg-badge">1 segment</span></summary>
-        <div class="grp-body">
-          <label for="seg-select" class="hint" style="margin:0 0 4px">Editing segment:</label>
-          <select id="seg-select" aria-label="Segment being edited"></select>
-          <p class="hint" id="seg-focus-hint"></p>
-
-          <div class="ctl-row" style="margin-top:10px">
-            <label for="seg-enabled" style="font-size:13px">COVID effect active in this segment</label>
-            <input type="checkbox" id="seg-enabled" checked>
-          </div>
-          <p class="hint">Untick to remove the COVID effect for this segment only (when the excess is the input it zeroes that segment&rsquo;s excess) &mdash; useful for isolating one group at a time.</p>
-
-          <details class="sub" open>
-            <summary>Shape</summary>
-            <div class="sub-body">
-              <div class="seg" role="group" aria-label="Pullforward shape">
-                <button type="button" id="shape-linear" aria-pressed="true">Linear</button>
-                <button type="button" id="shape-step" aria-pressed="false">Step</button>
-                <button type="button" id="shape-exp" aria-pressed="false">Exponential</button>
-              </div>
-              <p class="hint" id="shape-hint">Linear: effect fades to zero at the grade-out horizon.</p>
-            </div>
-          </details>
-
-          <details class="sub" open>
-            <summary>Peak fraction <span class="seg-badge" id="peak-status">input</span> <span class="readout" id="peak-out">65%</span></summary>
-            <div class="sub-body">
-              <input type="range" id="peak" min="0" max="1" step="0.01" value="0.65"
-                     aria-label="Peak fraction: share of 2021 deaths pulled into 2020">
-              <p class="hint" id="peak-hint">Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30&ndash;80%.</p>
-            </div>
-          </details>
-
-          <details class="sub" open id="grp-linear">
-            <summary>Grade-out horizon <span class="readout" id="grade-out-out">7 yrs</span></summary>
-            <div class="sub-body">
-              <input type="range" id="grade-out" min="0" max="100" step="1" value="7"
-                     aria-label="Years until the pullforward effect reaches zero">
-              <p class="hint" id="grade-out-hint">Deaths this many years out (or further) were untouched by COVID. 0 = no pullforward for this segment; beyond ~100 the horizon exceeds the cohorts&rsquo; remaining lifetimes.</p>
-            </div>
-          </details>
-
-          <details class="sub hidden" open id="grp-exp">
-            <summary>Decay rate <span class="readout" id="decay-out">0.30</span></summary>
-            <div class="sub-body">
-              <input type="range" id="decay" min="0.05" max="1" step="0.05" value="0.30"
-                     aria-label="Exponential decay rate">
-              <p class="hint" id="decay-hint">Fat tail, no hard cutoff. Effect halves every ~2.3 years.</p>
-            </div>
-          </details>
-
-          <button type="button" class="copy-btn" id="seg-copy-all">Apply these inputs to all segments</button>
-        </div>
-      </details>
-
-      <details class="ctl-group" open>
-        <summary>Segmentation</summary>
+        <summary>Segmentation <span class="info" tabindex="0" data-tip="Cutoffs split the ages into bands: e.g. '65' gives <65 and 65+; '65, 75, 85' gives four bands. Leave empty for one all-ages segment. Segments are matched on the cohort's age in 2020 and carry the pullforward shape (and peak) for both directions. On Rebuild, existing inputs carry over where the new segments overlap the old ones.">i</span></summary>
         <div class="grp-body">
           <div class="ctl-row">
             <label for="segdef-bysex" style="font-size:13px">Separate inputs by sex</label>
@@ -303,17 +276,66 @@
             <input type="text" id="segdef-cutoffs" class="ages-input" style="width:140px" value="65, 75, 85"
                    aria-label="Comma-separated age cutoffs defining the segments">
           </div>
-          <p class="hint">Cutoffs split the ages into bands: e.g. &ldquo;65&rdquo; gives &lt;65 and 65+; &ldquo;65, 75, 85&rdquo; gives &lt;65, 65&ndash;74, 75&ndash;84, 85+. Leave empty for one all-ages segment. Segments are matched on the cohort&rsquo;s age in 2020.</p>
           <button type="button" class="copy-btn" id="segdef-apply">Rebuild segments</button>
-          <p class="hint">Existing inputs carry over to the new segments where they overlap. The segments then appear in the &ldquo;Editing segment&rdquo; list above.</p>
         </div>
       </details>
 
       <details class="ctl-group" open>
-        <summary>Cumulative excess by age band <span class="seg-badge" id="excess-status">implied</span></summary>
+        <summary>Pullforward inputs <span class="seg-badge" id="seg-badge">1 segment</span></summary>
         <div class="grp-body">
-          <p class="hint" style="margin:0" id="bands-hint">Total extra COVID deaths for each age group, as a % of ONE normal year&rsquo;s deaths at that group&rsquo;s 2020 age. Bands are matched on the age in 2020.</p>
-          <div class="ctl-row" style="margin-top:8px">
+          <label for="seg-select" class="hint" style="margin:0 0 4px">Editing segment: <span class="info" tabindex="0" id="seg-focus-hint">i</span></label>
+          <select id="seg-select" aria-label="Segment being edited"></select>
+
+          <div class="ctl-row" style="margin-top:10px">
+            <label for="seg-enabled" style="font-size:13px">COVID effect active
+              <span class="info" tabindex="0" data-tip="Untick to remove the COVID effect for this segment only (when the excess is the input it zeroes that segment's excess) — useful for isolating one group at a time.">i</span></label>
+            <input type="checkbox" id="seg-enabled" checked>
+          </div>
+
+          <details class="sub" open>
+            <summary>Shape <span class="info" tabindex="0" id="shape-hint">i</span></summary>
+            <div class="sub-body">
+              <div class="seg" role="group" aria-label="Pullforward shape">
+                <button type="button" id="shape-linear" aria-pressed="true">Linear</button>
+                <button type="button" id="shape-step" aria-pressed="false">Step</button>
+                <button type="button" id="shape-exp" aria-pressed="false">Exponential</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="sub" open>
+            <summary>Peak fraction <span class="info" tabindex="0" id="peak-hint">i</span> <span class="seg-badge" id="peak-status">input</span> <span class="readout" id="peak-out">65%</span></summary>
+            <div class="sub-body">
+              <input type="range" id="peak" min="0" max="1" step="0.01" value="0.65"
+                     aria-label="Peak fraction: share of 2021 deaths pulled into 2020">
+            </div>
+          </details>
+
+          <details class="sub" open id="grp-linear">
+            <summary>Grade-out horizon <span class="info" tabindex="0" id="grade-out-hint">i</span> <span class="readout" id="grade-out-out">7 yrs</span></summary>
+            <div class="sub-body">
+              <input type="range" id="grade-out" min="0" max="100" step="1" value="7"
+                     aria-label="Years until the pullforward effect reaches zero">
+            </div>
+          </details>
+
+          <details class="sub hidden" open id="grp-exp">
+            <summary>Decay rate <span class="info" tabindex="0" id="decay-hint">i</span> <span class="readout" id="decay-out">0.30</span></summary>
+            <div class="sub-body">
+              <input type="range" id="decay" min="0.05" max="1" step="0.05" value="0.30"
+                     aria-label="Exponential decay rate">
+            </div>
+          </details>
+
+          <button type="button" class="copy-btn" id="seg-copy-all">Apply these inputs to all segments</button>
+        </div>
+      </details>
+
+
+      <details class="ctl-group" open>
+        <summary>Excess by age band <span class="info" tabindex="0" id="bands-hint">i</span> <span class="seg-badge" id="excess-status">implied</span></summary>
+        <div class="grp-body">
+          <div class="ctl-row">
             <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Set all to (%)</label>
             <input type="number" id="ex-fill-val" min="0" max="1000" step="5" value="50">
             <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
@@ -323,24 +345,16 @@
       </details>
 
       <details class="ctl-group" open>
-        <summary>Timing &amp; valuation</summary>
+        <summary>Excess timing</summary>
         <div class="grp-body">
-          <div class="ctl-row">
-            <label for="ex-val" style="font-size:13px">Valuation year</label>
-            <input type="number" id="ex-val" min="2021" max="2039" step="1" value="2025"
-                   aria-label="Valuation year: standing point for the remaining effect">
-          </div>
-          <p class="hint">You are standing at this year: the LE tiles and the table condition on being alive then and show the remaining effect. The excess deaths land in 2020 (or spread per the timing below); harvesting starts in 2021.</p>
-
           <details class="sub" open>
-            <summary>How the excess is timed across years</summary>
+            <summary>Excess timing across years <span class="info" tabindex="0" id="ex-exc-hint">i</span></summary>
             <div class="sub-body">
               <div class="seg" role="group" aria-label="Excess timing shape">
                 <button type="button" id="ex-exc-instant" aria-pressed="true">All in 2020</button>
                 <button type="button" id="ex-exc-linear" aria-pressed="false">Linear fade</button>
                 <button type="button" id="ex-exc-empirical" aria-pressed="false">Empirical</button>
               </div>
-              <p class="hint" id="ex-exc-hint">All in 2020: the entire excess lands in a single year.</p>
               <div class="hidden" id="ex-spread-row">
                 <div class="ctl-row" style="margin-top:8px">
                   <label for="ex-spread-years" style="font-size:13px">Over how many years</label>
@@ -356,23 +370,24 @@
         <summary>Mortality improvement</summary>
         <div class="grp-body">
           <div class="ctl-row">
-            <label for="imp-enabled" style="font-size:13px">Apply future improvement (all segments)</label>
+            <label for="imp-enabled" style="font-size:13px">Apply future improvement</label>
             <input type="checkbox" id="imp-enabled" checked>
           </div>
           <div id="imp-body">
             <div class="ctl-row" style="margin-top:8px">
-              <label for="imp-rate" style="font-size:13px">Flat rate (%/yr)</label>
+              <label for="imp-rate" style="font-size:13px">Flat rate (%/yr)
+                <span class="info" tabindex="0" data-tip="Mortality falls this much each calendar year at every age, anchored to the 2019 table (compounded forward past 2035, divided out backward to 2010). Applies to all segments. Default: 1%.">i</span></label>
               <input type="number" id="imp-rate" min="-20" max="20" step="0.1" value="1.0"
                      aria-label="Flat annual mortality improvement rate in percent">
             </div>
-            <p class="hint">Mortality falls this much each calendar year at every age, anchored to the 2019 table (compounded forward past 2035, divided out backward to 2010). Default: 1%.</p>
             <div class="ctl-row" style="margin-top:10px">
               <button type="button" class="copy-btn" id="imp-import" style="margin-top:0">Import CSV&hellip;</button>
               <button type="button" class="copy-btn hidden" id="imp-clear" style="margin-top:0">Remove</button>
               <input type="file" id="imp-file" accept=".csv,text/csv" class="hidden">
             </div>
             <p class="hint" id="imp-status">Using the flat rate. Import a CSV for age-varying (1D) or age &times; year (2D) rates.</p>
-            <p class="hint">Templates: <a href="#" id="tmpl-1d">1D (per age)</a> &middot; <a href="#" id="tmpl-2d">2D (age &times; year)</a> &mdash; pre-filled with 1%; edit in Excel, save as CSV, import here. Rates are decimals: 0.01 = 1%/yr.</p>
+            <p class="hint">Templates: <a href="#" id="tmpl-1d">1D (per age)</a> &middot; <a href="#" id="tmpl-2d">2D (age &times; year)</a>
+              <span class="info" tabindex="0" data-tip="The templates download pre-filled with 1% everywhere; edit in Excel, save as CSV, and import here. Rates are decimals: 0.01 = 1%/yr; negative = deterioration. 1D = one rate per age; 2D = a rate per age AND calendar year.">i</span></p>
           </div>
           <p class="hint hidden" id="imp-off-hint">Off: the static SSA 2019 table is used with no future improvement.</p>
         </div>
@@ -421,9 +436,9 @@
 
       <div class="tiles" id="ex-tiles" aria-label="Focus cohort results">
         <div class="tile hero">
-          <div class="label">Pulled forward from 2021</div>
-          <div class="value" id="ex-tile-peak">&ndash;</div>
-          <div class="sub" id="ex-tile-peak-sub"></div>
+          <div class="label">Equiv. mortality multiplier</div>
+          <div class="value" id="ex-tile-mult">&ndash;</div>
+          <div class="sub" id="ex-tile-mult-sub">flat qx scaling matching survivors&rsquo; LE</div>
         </div>
         <div class="tile hero">
           <div class="label" id="ex-tile-gain-label">LE gain at 2025</div>
@@ -431,19 +446,19 @@
           <div class="sub" id="ex-tile-gain-sub"></div>
         </div>
         <div class="tile">
-          <div class="label">Equiv. mortality multiplier</div>
-          <div class="value" id="ex-tile-mult">&ndash;</div>
-          <div class="sub">flat qx scaling matching survivors&rsquo; LE</div>
-        </div>
-        <div class="tile">
-          <div class="label" id="ex-tile-base-label">Baseline LE in 2025</div>
-          <div class="value" id="ex-tile-base">&ndash;</div>
-          <div class="sub" id="ex-tile-base-sub"></div>
+          <div class="label">Pulled forward from 2021</div>
+          <div class="value" id="ex-tile-peak">&ndash;</div>
+          <div class="sub" id="ex-tile-peak-sub"></div>
         </div>
         <div class="tile">
           <div class="label" id="ex-tile-x-label">Cumulative excess</div>
           <div class="value" id="ex-tile-x">&ndash;</div>
           <div class="sub" id="ex-tile-x-sub"></div>
+        </div>
+        <div class="tile">
+          <div class="label" id="ex-tile-base-label">Baseline LE in 2025</div>
+          <div class="value" id="ex-tile-base">&ndash;</div>
+          <div class="sub" id="ex-tile-base-sub"></div>
         </div>
         <div class="tile">
           <div class="label" id="ex-tile-alive-label">Alive in 2025 vs baseline</div>
@@ -561,12 +576,13 @@
              effect. Set a different flat rate, turn it off, or import a CSV of rates by age (1D) or by age
              and calendar year (2D) from the sidebar.</p>
 
-          <h3>The equivalent mortality multiplier</h3>
-          <p>A second way to express the survivors&rsquo; advantage: the single flat percentage applied to the
-             <em>entire</em> baseline qx table (from the valuation year on) that would produce the same life
-             expectancy the survivors have. For example 99% means &ldquo;the survivors&rsquo; LE gain is what
-             you&rsquo;d get by cutting mortality 1% at every age, forever.&rdquo; Found by bisection, exact to
-             ~1e-6 years.</p>
+          <h3>The equivalent mortality multiplier — the key output</h3>
+          <p>The headline number of the model: the single flat percentage applied to the <em>entire</em>
+             baseline qx table (from the valuation year on) that would produce the same life expectancy the
+             survivors have. For example 99% means &ldquo;the survivors&rsquo; LE gain is what you&rsquo;d get by
+             cutting mortality 1% at every age, forever&rdquo; &mdash; the units an actuary can apply directly
+             as a table adjustment. It leads the tiles and is the highlighted column of the summary table.
+             Found by bisection, exact to ~1e-6 years.</p>
 
           <h3>Reading the outputs</h3>
           <ul>
@@ -1051,6 +1067,38 @@ function activeScale() {
 
 /* ============ DOM helpers ============ */
 const $ = (id) => document.getElementById(id);
+
+/* ---- Hover help: one floating tip box for every .info[data-tip] icon ---- */
+const tipbox = document.createElement("div");
+tipbox.id = "tipbox";
+document.body.appendChild(tipbox);
+function showTip(el) {
+  const tip = el.dataset.tip;
+  if (!tip) return;
+  tipbox.textContent = tip;
+  tipbox.style.display = "block";
+  const r = el.getBoundingClientRect();
+  const bw = tipbox.offsetWidth, bh = tipbox.offsetHeight;
+  const x = Math.min(Math.max(8, r.left - 8), window.innerWidth - bw - 8);
+  let y = r.bottom + 6;
+  if (y + bh > window.innerHeight - 8) y = r.top - bh - 6;
+  tipbox.style.left = x + "px";
+  tipbox.style.top = y + "px";
+}
+document.addEventListener("mouseover", (e) => {
+  const el = e.target.closest ? e.target.closest(".info[data-tip]") : null;
+  if (el) showTip(el);
+  else tipbox.style.display = "none";
+});
+document.addEventListener("focusin", (e) => {
+  const el = e.target.closest ? e.target.closest(".info[data-tip]") : null;
+  if (el) showTip(el);
+});
+document.addEventListener("focusout", () => { tipbox.style.display = "none"; });
+// Clicking an icon inside a <summary> must not toggle the section
+document.addEventListener("click", (e) => {
+  if (e.target.closest && e.target.closest(".info")) { e.preventDefault(); e.stopPropagation(); }
+}, true);
 const fmt = {
   yrs: (v) => v.toFixed(2),
   delta: (v) => (v >= 0 ? "+" : "") + v.toFixed(2),
@@ -1068,21 +1116,22 @@ function makeChart(container, opts) {
   const xs = opts.xs;
   const xMin = xs[0], xMax = xs[xs.length - 1];
   const yDivs = 5;
+  const yMin = opts.yMin || 0;   // optional zoomed axis (e.g. the multiple chart)
   let yMax = opts.yMax;
   if (yMax == null) {
     let raw = 0;
     for (const s of opts.series) for (const v of s.ys) if (Number.isFinite(v)) raw = Math.max(raw, v);
     if (opts.refY != null) raw = Math.max(raw, opts.refY * 1.1);
-    if (raw <= 0) raw = 1;
+    if (raw <= yMin) raw = yMin + 1;
     // round the tick step UP to 1 / 2 / 2.5 / 5 x 10^k so tick labels are clean
-    const rawStep = raw / yDivs;
+    const rawStep = (raw - yMin) / yDivs;
     const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
     const norm = rawStep / mag;
     const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
-    yMax = nice * mag * yDivs;
+    yMax = yMin + nice * mag * yDivs;
   }
   const X = (x) => m.left + ((x - xMin) / (xMax - xMin || 1)) * iw;
-  const Y = (y) => m.top + ih - (y / yMax) * ih;
+  const Y = (y) => m.top + ih - ((y - yMin) / (yMax - yMin)) * ih;
 
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
@@ -1099,7 +1148,7 @@ function makeChart(container, opts) {
 
   // y grid + labels
   for (let i = 0; i <= yDivs; i++) {
-    const yv = (yMax / yDivs) * i;
+    const yv = yMin + ((yMax - yMin) / yDivs) * i;
     el("line", { x1: m.left, x2: m.left + iw, y1: Y(yv), y2: Y(yv), stroke: "#EDF0F4", "stroke-width": 1 });
     const t = el("text", { x: m.left - 8, y: Y(yv) + 4, "text-anchor": "end", "font-size": 11, fill: "#8B95A3" });
     t.textContent = opts.yTickFormat(yv);
@@ -1113,7 +1162,7 @@ function makeChart(container, opts) {
   const xl = el("text", { x: m.left + iw / 2, y: H - 2, "text-anchor": "middle", "font-size": 11, fill: "#8B95A3" });
   xl.textContent = opts.xLabel;
   // axis line
-  el("line", { x1: m.left, x2: m.left + iw, y1: Y(0), y2: Y(0), stroke: "#CFD6DE", "stroke-width": 1 });
+  el("line", { x1: m.left, x2: m.left + iw, y1: Y(yMin), y2: Y(yMin), stroke: "#CFD6DE", "stroke-width": 1 });
   // reference line
   if (opts.refY != null) {
     el("line", { x1: m.left, x2: m.left + iw, y1: Y(opts.refY), y2: Y(opts.refY), stroke: "#8B95A3", "stroke-width": 1, "stroke-dasharray": "4 4" });
@@ -1137,7 +1186,7 @@ function makeChart(container, opts) {
       started = true;
     }
     if (s.area) {
-      let ap = path + `L${X(xs[xs.length - 1]).toFixed(2)} ${Y(0)}L${X(xs[0]).toFixed(2)} ${Y(0)}Z`;
+      let ap = path + `L${X(xs[xs.length - 1]).toFixed(2)} ${Y(yMin)}L${X(xs[0]).toFixed(2)} ${Y(yMin)}Z`;
       el("path", { d: ap, fill: s.color, opacity: 0.12 });
     }
     el("path", { d: path, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" });
@@ -1290,6 +1339,9 @@ function render() {
     ? `for a ${sexLabel.toLowerCase()} aged ${r.ageAtValuation} in ${V}, vs no COVID`
     : "no cohort members alive at the valuation year";
   $("ex-tile-mult").textContent = Number.isFinite(r.equivMult) ? (r.equivMult * 100).toFixed(2) + "%" : "–";
+  $("ex-tile-mult-sub").textContent = Number.isFinite(r.equivMult)
+    ? `the KEY output: like scaling every qx by this from ${V} on — a ${((1 - r.equivMult) * 100).toFixed(2)}% cut at every age matches the survivors' LE`
+    : "flat qx scaling matching survivors' LE";
   $("ex-tile-base-label").textContent = `Baseline LE in ${V}`;
   $("ex-tile-base").textContent = r.valid ? fmt.yrs(r.leBase) + " yrs" : "–";
   $("ex-tile-base-sub").textContent = r.valid ? `survivors: ${fmt.yrs(r.leSurv)} yrs` : "";
@@ -1351,9 +1403,15 @@ function render() {
   const mEnd = Math.min(r.n - 1, Math.max(15, pfHorizon + 3, excEnd + 3));
   const mYears = [], mVals = [];
   for (let t = 0; t <= mEnd; t++) { mYears.push(COVID_YEAR + t); mVals.push(r.multiple[t]); }
+  let mLo = Infinity, mHi = -Infinity;
+  for (const v of mVals) if (Number.isFinite(v)) { mLo = Math.min(mLo, v); mHi = Math.max(mHi, v); }
+  if (!Number.isFinite(mLo)) { mLo = 0.8; mHi = 1.2; }
+  const mYMin = Math.max(0, Math.floor((Math.min(mLo, 0.98) - 0.01) * 20) / 20);
+  const mStep = Math.ceil(((Math.max(mHi, 1.02) + 0.01 - mYMin) / 5) / 0.05) * 0.05;
   makeChart($("chart-multcal"), {
     xs: mYears,
     series: [{ name: "Mortality multiple", color: C.survivor, ys: mVals }],
+    yMin: mYMin, yMax: mYMin + 5 * mStep,
     refY: 1.0, refLabel: "baseline = 1.0",
     vlineX: V, vlineLabel: "valuation " + V,
     yTickFormat: (v) => v.toFixed(2),
@@ -1413,8 +1471,8 @@ function render() {
         `<td>${Number.isFinite(row.peak) ? (row.peak * 100).toFixed(1) + "%" : "–"}${row.infeasible ? " ⚠" : ""}</td>` +
         `<td>${row.valid ? (row.aliveVsBaseline * 100).toFixed(2) + "%" : "–"}</td>` +
         `<td>${row.valid ? fmt.yrs(row.leBase) : "–"}</td><td>${row.valid ? fmt.yrs(row.leSurv) : "–"}</td>` +
-        `<td class="delta">${row.valid ? fmt.delta3(row.leChange) : "–"}</td>` +
-        `<td>${Number.isFinite(row.equivMult) ? (row.equivMult * 100).toFixed(2) + "%" : "–"}</td></tr>`;
+        `<td>${row.valid ? fmt.delta3(row.leChange) : "–"}</td>` +
+        `<td class="delta">${Number.isFinite(row.equivMult) ? (row.equivMult * 100).toFixed(2) + "%" : "–"}</td></tr>`;
     });
   });
   $("ex-summary-table").innerHTML = st;
@@ -1436,7 +1494,7 @@ function render() {
     });
     $("excess-status").textContent = "implied";
     $("excess-status").classList.add("derived-badge");
-    $("bands-hint").textContent = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
+    $("bands-hint").dataset.tip = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
       + `Currently IMPLIED by the assumed peaks (shown at each band's midpoint age, ${state.focusSex}; the tiles and table are exact per cohort). `
       + "Edit any band — or Set all — to make the excess the input instead; the peak then becomes solved.";
     $("peak").classList.remove("derived");
@@ -1449,7 +1507,7 @@ function render() {
     });
     $("excess-status").textContent = "input";
     $("excess-status").classList.remove("derived-badge");
-    $("bands-hint").textContent = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
+    $("bands-hint").dataset.tip = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
       + "The excess is the INPUT: the pullforward peak is solved from it under each cohort's segment shape (Shape / Grade-out above).";
     $("peak").classList.add("derived");
     $("peak-status").textContent = "solved";
@@ -1460,7 +1518,7 @@ function render() {
   const p = activeSegment().params;
   if (direct) {
     $("peak-out").textContent = fmt.pct0(p.peakFraction);
-    $("peak-hint").textContent = "Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30–80%. 0% disables the segment. The cumulative excess it implies shows in the band grid below and in the tiles.";
+    $("peak-hint").dataset.tip = "Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30–80%. 0% disables the segment. The cumulative excess it implies shows in the band grid below and in the tiles.";
   } else {
     const editSeg = activeSegment();
     const editSx = editSeg.sex === "all" ? state.focusSex : editSeg.sex;
@@ -1468,31 +1526,31 @@ function render() {
     const editPk = Math.min(1, Number.isFinite(rEdit.peak) ? rEdit.peak : 0);
     $("peak").value = editPk;
     $("peak-out").textContent = "≈ " + (rEdit.peak * 100).toFixed(1) + "% (solved)";
-    $("peak-hint").textContent = "Currently SOLVED from the excess (shown for this segment's midpoint age; exact per-cohort values in the table). Drag to make the peak the input again — every segment's peak is first seeded from its solved value, then your drag adjusts this segment.";
+    $("peak-hint").dataset.tip = "Currently SOLVED from the excess (shown for this segment's midpoint age; exact per-cohort values in the table). Drag to make the peak the input again — every segment's peak is first seeded from its solved value, then your drag adjusts this segment.";
   }
   $("grade-out-out").textContent = p.gradeOutYears === 0 ? "off (0)" : p.gradeOutYears + " yrs";
   $("decay-out").textContent = p.decayRate.toFixed(2) + "/yr";
   const pG = Math.max(1, p.gradeOutYears);
   const pMidT = 1 + Math.floor(pG / 2);
   const peakWord = direct ? "peak" : "solved peak";
-  $("shape-hint").textContent = p.shape === "linear"
+  $("shape-hint").dataset.tip = p.shape === "linear"
     ? `Linear: f(t) = peak × (1 − (t−1)/G) — ramps from the 2021 ${peakWord} straight down to zero at the horizon.`
     : p.shape === "step"
       ? `Step: f(t) = peak for every year inside the horizon, then zero — the FULL 2021 ${peakWord} applies throughout.`
       : `Exponential: f(t) = peak × e^(−rate×(t−1)) — a fat tail that never fully reaches zero.`;
-  $("grade-out-hint").textContent = p.gradeOutYears === 0
+  $("grade-out-hint").dataset.tip = p.gradeOutYears === 0
     ? "0 = no COVID effect for this segment."
     : (p.shape === "step"
       ? `The full ${peakWord} applies to 2021–${2020 + p.gradeOutYears}, then zero. 0 disables the segment.`
       : `Deaths further than this out were untouched: ${2020 + pMidT} = ${Math.round((1 - (pMidT - 1) / pG) * 100)}% of the ${peakWord}, ${2021 + p.gradeOutYears} = 0%. 0 disables the segment.`);
   const pDPct = (t) => Math.round(Math.exp(-p.decayRate * (t - 1)) * 100) + "%";
-  $("decay-hint").textContent =
-    `Halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} yrs — 2022 = ${pDPct(2)}, 2025 = ${pDPct(6)}, 2030 = ${pDPct(11)} of the 2021 ${peakWord}.`;
-  $("seg-focus-hint").textContent = `Focus cohort (${sexLabel} ${state.focusAge} in 2020) belongs to segment "${fSeg.label}". `
+  $("decay-hint").dataset.tip =
+    `Fat tail, no hard cutoff: halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} yrs — 2022 = ${pDPct(2)}, 2025 = ${pDPct(6)}, 2030 = ${pDPct(11)} of the 2021 ${peakWord}.`;
+  $("seg-focus-hint").dataset.tip = `Focus cohort (${sexLabel} ${state.focusAge} in 2020) belongs to segment "${fSeg.label}". `
     + (direct ? "The segment sets the assumed peak and how it grades away."
               : "The segment sets how the solved pullforward grades away (the peak comes from the excess).");
-  $("preset-desc").textContent = (PRESETS[state.preset] || PRESETS.custom).desc;
-  $("preset-driver-note").classList.toggle("hidden", direct);
+  $("preset-desc").textContent = (PRESETS[state.preset] || PRESETS.custom).desc
+    + (direct ? "" : " (Excess is the input, so the preset's peak is ignored — the peak is solved; its segments and shapes still apply. Picking a preset makes the peak the input again.)");
   $("seg-badge").textContent = state.segments.length + (state.segments.length === 1 ? " segment" : " segments");
   $("cohort-out").textContent = `${sexLabel}, ${state.focusAge} in 2020 (${r.ageAtValuation} in ${V})`;
 
@@ -1571,7 +1629,7 @@ function syncControls() {
   const empShares = excW.map((w) => Math.round((w / excWSum) * 100) + "%").join(" / ");
   const exN = state.ex.spreadYears, triSum = exN * (exN + 1) / 2;
   const triShares = Array.from({ length: exN }, (_, j) => Math.round(((exN - j) / triSum) * 100) + "%").join(" / ");
-  $("ex-exc-hint").textContent = state.ex.excShape === "instant"
+  $("ex-exc-hint").dataset.tip = state.ex.excShape === "instant"
     ? "All in 2020: x(2020) = 100% of the excess deaths; later years have none (pure harvesting from 2021 on)."
     : state.ex.excShape === "linear"
       ? `Linear fade: x(j) ∝ (N − j). With N = ${exN}, the total excess splits ${triShares} across 2020–${2019 + exN}.`

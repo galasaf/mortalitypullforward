@@ -51,15 +51,23 @@ Everything else is independent of which side is the input:
   exactly half in 2022, 21% in 2023, 6% in 2024, zero from 2025). Timing only
   moves *when* the deaths happen; totals and the peak are untouched. Every
   sidebar hint discloses the active shape's formula with live numeric examples
-- A **valuation year** (default 2025): LE gain, equivalent multiplier, and
-  remaining multiples are for people alive *then*
-- Live-updating tiles (peak assumed-or-solved, excess implied-or-assumed, LE
-  gain, equivalent mortality multiplier, baseline LE, alive-vs-baseline) and
-  four charts: the 2010–2035 **mortality trajectory** (baseline vs COVID line,
+- A **valuation year** (default 2025, at the very top of the sidebar): LE
+  gain, equivalent multiplier, and remaining multiples are for people alive
+  *then*
+- Live-updating tiles — led by the **equivalent mortality multiplier (the
+  key output, first hero tile)**, then LE gain, peak assumed-or-solved,
+  excess implied-or-assumed, baseline LE, alive-vs-baseline — and four
+  charts: the 2010–2035 **mortality trajectory** (baseline vs COVID line,
   improvement projected backward and forward from the 2019 table), the
-  pullforward by calendar year, the mortality multiple by calendar year (with
-  a first-20-years data table), and the death distribution baseline-vs-COVID;
-  plus a summary table across all ages/sexes (ages are ages **in 2020**)
+  pullforward by calendar year, the mortality multiple by calendar year
+  (zoomed y-axis so the harvest dip is readable; first-20-years data table),
+  and the death distribution baseline-vs-COVID; plus a summary table across
+  all ages/sexes (ages are ages **in 2020**; the equivalent-multiplier
+  column is the highlighted one)
+- Sidebar help lives in hover **(i) tooltips** next to each control (live
+  formulas and numeric examples) rather than embedded paragraphs; sidebar
+  order: Valuation year → Scenario preset → Segmentation → Pullforward
+  inputs → Excess by age band → Excess timing → Mortality improvement → CLI
 - A **Mortality improvement** sidebar group: on/off toggle, flat %/yr rate
   (default 1%, anchored to the 2019 table), CSV import of 1D/2D scales, and
   client-side template downloads
@@ -466,6 +474,6 @@ in the CLI) and computes the implied excess
 
 - **Mortality multiple < 1.0**: survivors have lower mortality than the SSA table (expected — the frailest were culled)
 - **LE change (years)**: additional remaining life expectancy for COVID survivors vs the SSA baseline
-- **Equiv. Mort. Mult. (%)**: the flat scaling of the entire baseline qx table that reproduces the survivors' LE — e.g. 92.0 means the survivors' gain equals a uniform 8% mortality cut at every age. Lower = stronger effect.
+- **Equiv. Mort. Mult. (%)** — **THE KEY OUTPUT of the model**: the flat scaling of the entire baseline qx table that reproduces the survivors' LE — e.g. 92.0 means the survivors' gain equals a uniform 8% mortality cut at every age. Lower = stronger effect. It leads the interface tiles (first hero tile), is the highlighted summary-table column, and should stay front-and-center in any new output.
 - Effect is largest for older cohorts (more of their near-term deaths were within the pullforward window) and diminishes for younger cohorts
 - The multiple returns to 1.0 at and beyond the grade-out horizon — no assumed lasting health advantage

@@ -297,6 +297,9 @@ def main():
         print("  year's (larger) death count.")
     print("  Alive vs baseline (%): population still alive at the valuation year,")
     print("  relative to the no-COVID baseline (the not-yet-harvested deficit).")
+    print("  Equiv mult (%) -- THE KEY OUTPUT: the single flat qx multiplier on the")
+    print("  whole baseline table (from the valuation year on) that reproduces the")
+    print("  survivors' LE, e.g. 99.5 = a uniform 0.5% mortality cut at every age.")
     if any_infeasible:
         fix = ("increase --decay-rate's inverse (use a smaller --decay-rate for a fatter tail)"
                if args.pullforward_shape == "exponential" else "lengthen --grade-out")
