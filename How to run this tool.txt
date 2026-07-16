@@ -166,29 +166,31 @@ first green box). There are two SEPARATE toggles for how
 this all grades away over time — one for the pullforward
 (repayment) side, one for the excess (spike) side.
 
-WHAT TO SET (left pane, "Solve-from-excess inputs" —
-plus the shared "Timing & valuation" section below it):
+WHAT TO SET:
 
-  - "Valuation year" (in "Timing & valuation", normally
-    2025): you are standing at this year. The LE gain and
-    the table show the remaining effect for people still
-    alive at this year. This applies in BOTH directions
-    of the model.
+  - "Cumulative excess by age band" (this direction's own
+    input): the excess for every 5-year age group. They
+    start at 50%; edit any band, or type a number next to
+    "Set all to (%)" and click Apply.
 
-  - "How the pullforward grades away": three buttons.
-      Linear (default) — the solved 2021 share fades in a
-      straight line to zero at the "Grade-out horizon"
-      (7 years is a reasonable start).
-      Step — the FULL solved share applies to every year
-      inside the horizon, then drops to zero.
-      Exponential — fades at a chosen decay rate and never
-      fully reaches zero (a "fat tail"); there is no
-      horizon input for this one, just the decay rate.
-
-  - "Cumulative excess by age band": the excess for every
-    5-year age group. They start at 50%; edit any band, or
-    type a number next to "Set all to (%)" and click
-    Apply.
+  - Everything else is THE SAME controls as Part 2 and
+    applies here too:
+      * "Pullforward inputs" — the Shape (Linear / Step /
+        Exponential) and Grade-out horizon (or decay rate)
+        of each SEGMENT now govern how the SOLVED
+        pullforward grades away. Only the "Peak fraction"
+        slider disappears (the peak is what gets solved).
+        Squeezing the horizon forces a higher solved peak;
+        stretching it lowers the peak.
+      * Scenario presets still work — their segments and
+        grade-out shapes apply; their peak is ignored.
+      * "Segmentation" — age cutoffs / by-sex split apply
+        in both directions; unticking "COVID effect active"
+        for a segment zeroes that group's excess.
+      * "Valuation year" (in "Timing & valuation", normally
+        2025): you are standing at this year. The LE gain
+        and the table show the remaining effect for people
+        still alive at this year.
 
   - "How the excess is timed across years" (in "Timing &
     valuation"; applies in BOTH directions of the model):

@@ -232,15 +232,16 @@
         </div>
       </details>
 
-      <details class="ctl-group drv-direct" open>
+      <details class="ctl-group" open>
         <summary>Scenario preset</summary>
         <div class="grp-body">
           <select id="preset" aria-label="Scenario preset"></select>
           <p class="hint" id="preset-desc"></p>
+          <p class="hint hidden" id="preset-driver-note">In solve-from-excess, the preset&rsquo;s peak is ignored (the peak is solved from the excess); its segments and grade-out shapes still apply.</p>
         </div>
       </details>
 
-      <details class="ctl-group drv-direct" open>
+      <details class="ctl-group" open>
         <summary>Pullforward inputs <span class="seg-badge" id="seg-badge">1 segment</span></summary>
         <div class="grp-body">
           <label for="seg-select" class="hint" style="margin:0 0 4px">Editing segment:</label>
@@ -248,10 +249,10 @@
           <p class="hint" id="seg-focus-hint"></p>
 
           <div class="ctl-row" style="margin-top:10px">
-            <label for="seg-enabled" style="font-size:13px">Pullforward active in this segment</label>
+            <label for="seg-enabled" style="font-size:13px">COVID effect active in this segment</label>
             <input type="checkbox" id="seg-enabled" checked>
           </div>
-          <p class="hint">Untick to remove the COVID effect for this segment only &mdash; useful for isolating one group at a time.</p>
+          <p class="hint">Untick to remove the COVID effect for this segment only (in solve-from-excess it zeroes that segment&rsquo;s excess) &mdash; useful for isolating one group at a time.</p>
 
           <details class="sub" open>
             <summary>Shape</summary>
@@ -265,12 +266,12 @@
             </div>
           </details>
 
-          <details class="sub" open>
+          <details class="sub drv-direct" open>
             <summary>Peak fraction <span class="readout" id="peak-out">65%</span></summary>
             <div class="sub-body">
               <input type="range" id="peak" min="0" max="1" step="0.01" value="0.65"
                      aria-label="Peak fraction of year-1 deaths pulled into COVID">
-              <p class="hint">Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30&ndash;80%. 0% disables the effect for this segment. The cumulative excess this implies is shown in the tiles.</p>
+              <p class="hint">Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30&ndash;80%. 0% disables the effect for this segment. The cumulative excess this implies is shown in the tiles. (In solve-from-excess this slider disappears &mdash; the peak is solved.)</p>
             </div>
           </details>
 
@@ -296,7 +297,7 @@
         </div>
       </details>
 
-      <details class="ctl-group drv-direct" open>
+      <details class="ctl-group" open>
         <summary>Segmentation</summary>
         <div class="grp-body">
           <div class="ctl-row">
@@ -315,51 +316,15 @@
       </details>
 
       <details class="ctl-group drv-excess hidden" open>
-        <summary>Solve-from-excess inputs</summary>
+        <summary>Cumulative excess by age band</summary>
         <div class="grp-body">
-          <details class="sub" open>
-            <summary>How the pullforward grades away</summary>
-            <div class="sub-body">
-              <div class="seg" role="group" aria-label="Harvest (pullforward) shape">
-                <button type="button" id="ex-pf-linear" aria-pressed="true">Linear</button>
-                <button type="button" id="ex-pf-step" aria-pressed="false">Step</button>
-                <button type="button" id="ex-pf-exp" aria-pressed="false">Exponential</button>
-              </div>
-              <p class="hint" id="ex-pf-hint">Linear: the solved 2021 peak ramps down to zero at the grade-out horizon.</p>
-
-              <div id="ex-grade-row">
-                <div class="ctl-row" style="margin-top:8px">
-                  <label for="ex-grade" style="font-size:13px">Grade-out horizon</label>
-                  <span class="readout" id="ex-grade-out">7 yrs</span>
-                </div>
-                <input type="range" id="ex-grade" min="1" max="30" step="1" value="7"
-                       aria-label="Years over which the harvesting grades away">
-                <p class="hint" id="ex-grade-hint">The pulled-forward deaths would all have happened within this many years after 2020.</p>
-              </div>
-              <div class="hidden" id="ex-decay-row">
-                <div class="ctl-row" style="margin-top:8px">
-                  <label for="ex-decay" style="font-size:13px">Decay rate</label>
-                  <span class="readout" id="ex-decay-out">0.30</span>
-                </div>
-                <input type="range" id="ex-decay" min="0.05" max="1" step="0.05" value="0.30"
-                       aria-label="Exponential decay rate for the harvest">
-                <p class="hint" id="ex-decay-hint">Fat tail, no hard cutoff. Effect halves every ~2.3 years.</p>
-              </div>
-            </div>
-          </details>
-
-          <details class="sub" open>
-            <summary>Cumulative excess by age band</summary>
-            <div class="sub-body">
-              <p class="hint" style="margin:0">Total extra COVID deaths for each age group, as a % of ONE normal year&rsquo;s deaths at that group&rsquo;s 2020 age. Bands are matched on the age in 2020.</p>
-              <div class="ctl-row" style="margin-top:8px">
-                <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Set all to (%)</label>
-                <input type="number" id="ex-fill-val" min="0" max="300" step="5" value="50">
-                <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
-              </div>
-              <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band"></div>
-            </div>
-          </details>
+          <p class="hint" style="margin:0">Total extra COVID deaths for each age group, as a % of ONE normal year&rsquo;s deaths at that group&rsquo;s 2020 age. Bands are matched on the age in 2020. How the solved pullforward grades away comes from each cohort&rsquo;s segment (the Shape and Grade-out inputs above).</p>
+          <div class="ctl-row" style="margin-top:8px">
+            <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Set all to (%)</label>
+            <input type="number" id="ex-fill-val" min="0" max="300" step="5" value="50">
+            <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
+          </div>
+          <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band"></div>
         </div>
       </details>
 
@@ -552,15 +517,19 @@
              Because mortality rises with age, a fixed number of borrowed deaths is a shrinking share of each
              later year&rsquo;s larger death count, which automatically mutes the future effect.</p>
           <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t&ge;1</sub> peak &times; w(t) &times; D<sub>b</sub>(t)</div>
-          <p>The <strong>Pullforward source</strong> toggle picks which side you specify:</p>
+          <p>The <strong>Pullforward source</strong> toggle picks which side you specify. Either way,
+             <strong>segments</strong> (age band &times; optional sex, matched on the age in 2020) carry how the
+             pullforward grades away &mdash; shape, horizon, decay, and the on/off switch &mdash; and presets
+             configure them:</p>
           <ul>
-            <li><strong>Assume pullforward</strong> &mdash; you set the peak (the share of 2021&rsquo;s deaths
-                pulled into 2020) and how it grades away, per segment (age band &times; optional sex). The
-                model computes the cumulative excess this <em>implies</em>.</li>
+            <li><strong>Assume pullforward</strong> &mdash; the segment also carries the peak (the share of
+                2021&rsquo;s deaths pulled into 2020). The model computes the cumulative excess this
+                <em>implies</em>.</li>
             <li><strong>Solve from excess</strong> &mdash; you set each 5-year age band&rsquo;s cumulative
-                excess (% of one normal year&rsquo;s deaths) and the model <em>solves</em> the peak. If the
-                excess exceeds every death available to harvest, the solve is infeasible: the pullforward is
-                capped at 100% and a warning is shown.</li>
+                excess (% of one normal year&rsquo;s deaths; a finer, data-like input than segments) and the
+                model <em>solves</em> the peak under the cohort&rsquo;s segment shape. If the excess exceeds
+                every death available to harvest, the solve is infeasible: the pullforward is capped at 100%
+                and a warning is shown.</li>
           </ul>
           <p><strong>How the pullforward grades away</strong>, w(t), has three shapes (normalized so every
              shape equals 1.0 in 2021 &mdash; &ldquo;peak&rdquo; always means the same thing):</p>
@@ -1045,11 +1014,10 @@ const state = {
   tableAges: [40, 50, 55, 60, 65, 70, 75, 80],
   // Mortality improvement (global — applies to all segments)
   impEnabled: true, impRatePct: 1.0, impScale: null, impFileName: null,
-  // Excess-calibration mode inputs
+  // Shared excess/timing inputs (how the pullforward grades away lives on the
+  // SEGMENTS and is used by both drivers)
   ex: {
     bandsPct: new Array(N_BANDS).fill(50),  // cumulative excess per 5-yr band, % of one year's deaths
-    gradeOut: 7,
-    pfShape: "linear", decayRate: DEFAULT_DECAY_RATE,   // how the harvest grades away
     valuationYear: 2025,
     excShape: "instant", spreadYears: 3,    // how the excess itself is timed across years
   },
@@ -1057,7 +1025,6 @@ const state = {
 function applyPreset(key) {
   const p = PRESETS[key];
   if (!p || key === "custom") return;
-  state.driver = "direct";  // presets describe the assumed-pullforward driver
   state.seg = { bySex: false, cutoffs: p.ageVarying ? PRESET_CUTOFFS.slice() : [] };
   state.segments = buildSegments(state.seg, null);
   state.segments.forEach((s, i) => {
@@ -1235,19 +1202,23 @@ function impCliFlags() {
   return { flags, note };
 }
 
-// Run one cohort under the current driver: direct = per-segment assumed
-// pullforward (excess implied); excess = per-band assumed excess (peak solved).
+// Run one cohort under the current driver. Both drivers take the pullforward
+// SHAPE (how it grades away) from the cohort's segment; the direct driver
+// also takes the peak from the segment, while the excess driver solves the
+// peak from the cohort's band excess. A switched-off segment (or a zero
+// horizon on linear/step) means no COVID effect either way.
 function runFor(age, sex, scale) {
   const ex = state.ex;
-  if (state.driver === "direct") {
-    const p = findSegmentIn(state.segments, age, sex).params;
-    const peak = p.enabled ? p.peakFraction : 0;
+  const p = findSegmentIn(state.segments, age, sex).params;
+  const off = !p.enabled || (p.shape !== "exponential" && p.gradeOutYears <= 0);
+  if (state.driver === "direct" || off) {
+    const peak = (off || state.driver !== "direct") ? 0 : p.peakFraction;
     return runExcessCohort(age, sex, scale, null, p.gradeOutYears, ex.valuationYear,
                            p.shape, p.decayRate, ex.excShape, ex.spreadYears, peak);
   }
   const bands = ex.bandsPct.map((v) => v / 100);
-  return runExcessCohort(age, sex, scale, bands, ex.gradeOut, ex.valuationYear,
-                         ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears, null);
+  return runExcessCohort(age, sex, scale, bands, p.gradeOutYears, ex.valuationYear,
+                         p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
 }
 
 function render() {
@@ -1261,11 +1232,11 @@ function render() {
   const cache = {};
   const r = runFor(state.focusAge, state.focusSex, scale);
 
-  // The focus cohort's pullforward shape (its segment's in the direct driver,
-  // the global solve settings in the excess driver).
-  const shape = direct ? fSeg.params.shape : ex.pfShape;
-  const gradeOut = direct ? fSeg.params.gradeOutYears : ex.gradeOut;
-  const decay = direct ? fSeg.params.decayRate : ex.decayRate;
+  // The focus cohort's pullforward shape always comes from its segment,
+  // in both drivers.
+  const shape = fSeg.params.shape;
+  const gradeOut = fSeg.params.gradeOutYears;
+  const decay = fSeg.params.decayRate;
 
   // --- Tiles ---
   $("ex-tile-peak").textContent = Number.isFinite(r.peak) ? (r.peak * 100).toFixed(1) + "%" : "–";
@@ -1273,7 +1244,7 @@ function render() {
     ? `assumed input — share of 2021 deaths that happened in 2020 instead (segment “${fSeg.label}”${fSeg.params.enabled ? "" : ", off"})`
     : (r.infeasible
         ? '<span class="warnline">⚠ over 100% — infeasible; capped at 100%</span>'
-        : "solved: share of 2021 deaths that happened in 2020 instead");
+        : `solved: share of 2021 deaths that happened in 2020 instead (shape from segment “${fSeg.label}”${fSeg.params.enabled ? "" : ", off"})`);
   $("ex-tile-gain-label").textContent = `LE gain at ${V}`;
   $("ex-tile-gain").textContent = r.valid ? fmt.delta3(r.leChange) + " yrs" : "–";
   $("ex-tile-gain-sub").textContent = r.valid
@@ -1385,11 +1356,10 @@ function render() {
   // --- Summary table (ages are ages IN 2020) ---
   const sexes = ["male", "female"].filter((sx) => state.viewSexes[sx]);
   const excessHead = direct ? "Excess (implied)" : "Excess";
-  let st = `<tr><th>Cohort (2020)</th><th>Age ${V}</th>` + (direct ? "<th>Segment</th>" : "") +
+  let st = `<tr><th>Cohort (2020)</th><th>Age ${V}</th><th>Segment</th>` +
     `<th>${excessHead}</th><th>Pulled from 2021</th><th>Alive vs base</th><th>LE base</th><th>LE surv</th><th>LE gain</th><th>Equiv. mult.</th></tr>`;
-  const nCols = direct ? 10 : 9;
   if (!sexes.length || !state.tableAges.length) {
-    st += `<tr><td colspan="${nCols}" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
+    st += `<tr><td colspan="10" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
   }
   sexes.forEach((sex, si) => {
     state.tableAges.forEach((age, i) => {
@@ -1399,7 +1369,7 @@ function render() {
       const cls = [isFocus ? "focus-row" : "", i === 0 && si > 0 ? "sex-break" : ""].join(" ").trim();
       st += `<tr${cls ? ` class="${cls}"` : ""}><td>${sex === "male" ? "Male" : "Female"} ${age}</td>` +
         `<td>${row.ageAtValuation}</td>` +
-        (direct ? `<td style="text-align:left;color:var(--ink-3)">${seg.label}${seg.params.enabled ? "" : " (off)"}</td>` : "") +
+        `<td style="text-align:left;color:var(--ink-3)">${seg.label}${seg.params.enabled ? "" : " (off)"}</td>` +
         `<td>${(row.E * 100).toFixed(0)}%</td>` +
         `<td>${Number.isFinite(row.peak) ? (row.peak * 100).toFixed(1) + "%" : "–"}${row.infeasible ? " ⚠" : ""}</td>` +
         `<td>${row.valid ? (row.aliveVsBaseline * 100).toFixed(2) + "%" : "–"}</td>` +
@@ -1411,44 +1381,58 @@ function render() {
   $("ex-summary-table").innerHTML = st;
   $("ex-summary-sub").textContent = direct
     ? `Ages are ages in 2020; each cohort uses its segment's assumed pullforward, and the excess column shows what that implies. LE columns stand at ${V}. The highlighted row is your focus cohort.`
-    : `Ages are ages in 2020; each cohort uses its own band's excess. "Pulled from 2021" is the solved peak pullforward; ⚠ marks infeasible rows (capped at 100%). LE columns stand at ${V}. The highlighted row is your focus cohort.`;
+    : `Ages are ages in 2020; each cohort uses its own band's excess and its segment's grade-away shape. "Pulled from 2021" is the solved peak pullforward; ⚠ marks infeasible rows (capped at 100%). LE columns stand at ${V}. The highlighted row is your focus cohort.`;
 
-  // --- Direct-driver sidebar readouts ---
+  // --- Segment-control readouts and formula hints (the EDITING segment) ---
   const p = activeSegment().params;
   $("peak-out").textContent = fmt.pct0(p.peakFraction);
   $("grade-out-out").textContent = p.gradeOutYears === 0 ? "off (0)" : p.gradeOutYears + " yrs";
-  $("decay-out").textContent = p.decayRate.toFixed(2);
-  $("decay-hint").textContent = `Fat tail, no hard cutoff. Effect halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} years.`;
-  $("seg-focus-hint").textContent = `Focus cohort (${sexLabel} ${state.focusAge} in 2020) belongs to segment "${fSeg.label}".`;
+  $("decay-out").textContent = p.decayRate.toFixed(2) + "/yr";
+  const pG = Math.max(1, p.gradeOutYears);
+  const pMidT = 1 + Math.floor(pG / 2);
+  const peakWord = direct ? "peak" : "solved peak";
+  $("shape-hint").textContent = p.shape === "linear"
+    ? `Linear: f(t) = peak × (1 − (t−1)/G) — ramps from the 2021 ${peakWord} straight down to zero at the horizon.`
+    : p.shape === "step"
+      ? `Step: f(t) = peak for every year inside the horizon, then zero — the FULL 2021 ${peakWord} applies throughout.`
+      : `Exponential: f(t) = peak × e^(−rate×(t−1)) — a fat tail that never fully reaches zero.`;
+  $("grade-out-hint").textContent = p.gradeOutYears === 0
+    ? "0 = no COVID effect for this segment."
+    : (p.shape === "step"
+      ? `The full ${peakWord} applies to 2021–${2020 + p.gradeOutYears}, then zero. 0 disables the segment.`
+      : `Deaths further than this out were untouched: ${2020 + pMidT} = ${Math.round((1 - (pMidT - 1) / pG) * 100)}% of the ${peakWord}, ${2021 + p.gradeOutYears} = 0%. 0 disables the segment.`);
+  const pDPct = (t) => Math.round(Math.exp(-p.decayRate * (t - 1)) * 100) + "%";
+  $("decay-hint").textContent =
+    `Halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} yrs — 2022 = ${pDPct(2)}, 2025 = ${pDPct(6)}, 2030 = ${pDPct(11)} of the 2021 ${peakWord}.`;
+  $("seg-focus-hint").textContent = `Focus cohort (${sexLabel} ${state.focusAge} in 2020) belongs to segment "${fSeg.label}". `
+    + (direct ? "The segment sets the assumed peak and how it grades away."
+              : "The segment sets how the solved pullforward grades away (the peak comes from the excess).");
   $("preset-desc").textContent = (PRESETS[state.preset] || PRESETS.custom).desc;
+  $("preset-driver-note").classList.toggle("hidden", direct);
   $("seg-badge").textContent = state.segments.length + (state.segments.length === 1 ? " segment" : " segments");
   $("cohort-out").textContent = `${sexLabel}, ${state.focusAge} in 2020 (${r.ageAtValuation} in ${V})`;
 
-  // --- CLI (unified engine: excess.py either way) ---
+  // --- CLI (unified engine: excess.py either way; shapes from the focus segment) ---
   const imp = impCliFlags();
   const parts = ["python excess.py"];
+  const pf = fSeg.params;
   if (direct) {
-    const pf = fSeg.params;
     parts.push(`--peak ${pf.enabled ? pf.peakFraction : 0}`);
-    if (pf.shape !== "linear") parts.push(`--pullforward-shape ${pf.shape}`);
-    if (pf.shape === "exponential") parts.push(`--decay-rate ${pf.decayRate}`);
-    else parts.push(`--grade-out ${Math.max(1, pf.gradeOutYears)}`);
   } else {
     const uniform = ex.bandsPct.every((v) => v === ex.bandsPct[0]);
-    if (uniform) parts.push(`--excess-all ${ex.bandsPct[0]}`);
+    if (uniform) parts.push(`--excess-all ${pf.enabled ? ex.bandsPct[0] : 0}`);
     else parts.push(`--excess "${ex.bandsPct.join(",")}"`);
-    if (ex.pfShape !== "linear") parts.push(`--pullforward-shape ${ex.pfShape}`);
-    if (ex.pfShape === "exponential") parts.push(`--decay-rate ${ex.decayRate}`);
-    else parts.push(`--grade-out ${ex.gradeOut}`);
   }
+  if (pf.shape !== "linear") parts.push(`--pullforward-shape ${pf.shape}`);
+  if (pf.shape === "exponential") parts.push(`--decay-rate ${pf.decayRate}`);
+  else parts.push(`--grade-out ${Math.max(1, pf.gradeOutYears)}`);
   parts.push(`--valuation-year ${V}`);
   if (ex.excShape !== "instant") parts.push(`--excess-shape ${ex.excShape}`);
   if (ex.excShape === "linear") parts.push(`--excess-spread ${ex.spreadYears}`);
   parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...imp.flags);
   $("cli-cmd").textContent = parts.join(" ");
-  $("cli-note").textContent = (direct
-    ? "Reproduces the focus cohort (each cohort depends only on its own segment's inputs; re-run per segment for the rest). "
-    : "Reproduces the focus cohort and the trajectory at this age; drop --age/--sex for the full table. ")
+  $("cli-note").textContent =
+    "Reproduces the focus cohort (each cohort depends only on its own segment's shape inputs; re-run per segment for the rest). "
     + imp.note;
 }
 
@@ -1479,16 +1463,9 @@ function syncControls() {
   $("shape-linear").setAttribute("aria-pressed", p.shape === "linear");
   $("shape-step").setAttribute("aria-pressed", p.shape === "step");
   $("shape-exp").setAttribute("aria-pressed", p.shape === "exponential");
-  $("shape-hint").textContent = p.shape === "linear"
-    ? "Linear: effect starts at the peak and fades to zero at the grade-out horizon."
-    : p.shape === "step"
-      ? "Step: the FULL peak effect applies to every year inside the horizon, then drops to zero. Peak 100% = everyone who would have died within the horizon died during COVID."
-      : "Exponential: fat tail — the effect decays but never fully reaches zero.";
+  // (shape-hint / grade-out-hint / decay-hint carry live formulas — set in render())
   $("grp-linear").classList.toggle("hidden", !usesGradeOut);
   $("grp-exp").classList.toggle("hidden", usesGradeOut);
-  $("grade-out-hint").textContent = p.shape === "step"
-    ? "The full peak effect applies to every year up to this horizon; deaths further out were untouched. 0 = no pullforward for this segment."
-    : "Deaths this many years out (or further) were untouched by COVID; on the way there the effect ramps down linearly from the peak. 0 = no pullforward for this segment; beyond ~100 the horizon exceeds the cohorts’ remaining lifetimes.";
 
   // Segmentation definition
   $("segdef-bysex").checked = state.seg.bySex;
@@ -1500,31 +1477,8 @@ function syncControls() {
   $("view-male").checked = state.viewSexes.male;
   $("view-female").checked = state.viewSexes.female;
 
-  // Excess-calibration controls
+  // Shared timing/valuation + excess-band controls
   $("ex-val").value = state.ex.valuationYear;
-  $("ex-grade").value = state.ex.gradeOut;
-  $("ex-grade-out").textContent = state.ex.gradeOut + " yrs";
-  const exR = state.ex.decayRate, exG = state.ex.gradeOut;
-  $("ex-decay").value = exR;
-  $("ex-decay-out").textContent = exR.toFixed(2) + "/yr";
-  const dPct = (t) => Math.round(Math.exp(-exR * (t - 1)) * 100) + "%";
-  $("ex-decay-hint").textContent =
-    `f(t) = peak × e^(−${exR.toFixed(2)}×(t−1)): the effect halves every ~${(Math.LN2 / exR).toFixed(1)} yrs — ` +
-    `2022 = ${dPct(2)}, 2025 = ${dPct(6)}, 2030 = ${dPct(11)} of the 2021 peak. ` +
-    `The peak itself is solved from the excess (it does not move with this slider); the rate sets how long the dip lasts.`;
-  const exPfUsesGradeOut = state.ex.pfShape === "linear" || state.ex.pfShape === "step";
-  $("ex-pf-linear").setAttribute("aria-pressed", state.ex.pfShape === "linear");
-  $("ex-pf-step").setAttribute("aria-pressed", state.ex.pfShape === "step");
-  $("ex-pf-exp").setAttribute("aria-pressed", state.ex.pfShape === "exponential");
-  const midT = 1 + Math.floor(exG / 2);
-  $("ex-pf-hint").textContent = state.ex.pfShape === "linear"
-    ? `Linear: f(t) = peak × (1 − (t−1)/${exG}) — ramps from the solved 2021 peak straight down to zero: ` +
-      `${2020 + midT} = ${Math.round((1 - (midT - 1) / exG) * 100)}% of the peak, ${2021 + exG} = 0%.`
-    : state.ex.pfShape === "step"
-      ? `Step: f(t) = peak, flat for 2021–${2020 + exG}, then zero — the FULL solved peak applies to every year inside the horizon.`
-      : "Exponential: f(t) = peak × e^(−rate×(t−1)) — a fat tail that never fully reaches zero. The decay-rate slider below sets how fast it fades.";
-  $("ex-grade-row").classList.toggle("hidden", !exPfUsesGradeOut);
-  $("ex-decay-row").classList.toggle("hidden", exPfUsesGradeOut);
   $("ex-exc-instant").setAttribute("aria-pressed", state.ex.excShape === "instant");
   $("ex-exc-linear").setAttribute("aria-pressed", state.ex.excShape === "linear");
   $("ex-exc-empirical").setAttribute("aria-pressed", state.ex.excShape === "empirical");
@@ -1595,7 +1549,7 @@ function init() {
     state.preset = sel.value;
     applyPreset(sel.value);
     $("segdef-cutoffs").value = state.seg.cutoffs.join(", ");
-    setDriver("direct");  // presets describe the assumed-pullforward driver
+    syncControls(); render();  // presets apply in both drivers (peak used in direct only)
   });
 
   // Per-segment inputs
@@ -1649,17 +1603,6 @@ function init() {
     e.target.value = state.ex.valuationYear;
     render();
   });
-  $("ex-grade").addEventListener("input", (e) => {
-    state.ex.gradeOut = +e.target.value;
-    syncControls(); render();
-  });
-  $("ex-decay").addEventListener("input", (e) => {
-    state.ex.decayRate = +e.target.value;
-    syncControls(); render();
-  });
-  $("ex-pf-linear").addEventListener("click", () => { state.ex.pfShape = "linear"; syncControls(); render(); });
-  $("ex-pf-step").addEventListener("click", () => { state.ex.pfShape = "step"; syncControls(); render(); });
-  $("ex-pf-exp").addEventListener("click", () => { state.ex.pfShape = "exponential"; syncControls(); render(); });
   $("ex-exc-instant").addEventListener("click", () => { state.ex.excShape = "instant"; syncControls(); render(); });
   $("ex-exc-linear").addEventListener("click", () => { state.ex.excShape = "linear"; syncControls(); render(); });
   $("ex-exc-empirical").addEventListener("click", () => { state.ex.excShape = "empirical"; syncControls(); render(); });

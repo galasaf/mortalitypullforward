@@ -16,21 +16,25 @@ browser. It is a JavaScript port of the **unified, calendar-anchored engine**
 drivers and all shape combinations). One conservation equation — excess deaths
 in 2020 = deaths harvested from later years — ties the pullforward to the
 cumulative excess, so a single **Pullforward source** toggle picks which side
-the user specifies:
+the user specifies. **Segments are universal**: user-defined age cutoffs and
+an optional sex split (cohorts matched on their age in 2020) carry how the
+pullforward grades away — shape (linear/step/exponential), grade-out horizon,
+decay rate, and an on/off switch — and are used by BOTH drivers; the 9 named
+scenario presets configure them (age-varying presets → 4 segments at cutoffs
+65/75/85) and stay selectable in both drivers:
 
-- **Assume pullforward** (default): peak % (share of 2021's deaths pulled into
-  2020) + how it grades away (linear/step/exponential), set **per segment**
-  (user-defined age cutoffs and optional sex split; cohorts matched on their
-  age in 2020), with the 9 named scenario presets mapping onto segments
-  (age-varying presets → 4 segments at cutoffs 65/75/85). The model reports
-  the **implied cumulative excess** — e.g. the old moderate_base default (65%
-  peak, 7-yr grade-out) implies ~300% of a year's deaths for 65-year-olds,
-  vs the ~50% actually observed.
+- **Assume pullforward** (default): the segment additionally carries the peak
+  % (share of 2021's deaths pulled into 2020; this slider is the only
+  direct-only control). The model reports the **implied cumulative excess** —
+  e.g. moderate_base (65% peak, 7-yr grade-out) implies ~300% of a year's
+  deaths for 65-year-olds, vs the ~50% actually observed.
 - **Solve from excess**: cumulative excess per 5-year age band (% of one
-  normal year's deaths, default 50%) + a global harvest shape; the model
-  *solves* the peak (~10–13% for 50% excess / 7-yr grade-out), with an
-  infeasibility warning (capped at 100%) when the excess exceeds every death
-  available to harvest.
+  normal year's deaths, default 50%; a finer, data-like input than segments).
+  The model *solves* the peak under each cohort's segment shape (~10–13% for
+  50% excess / 7-yr grade-out; ~31% if the horizon is squeezed to 2 years),
+  with an infeasibility warning (capped at 100%) when the excess exceeds
+  every death available to harvest. A switched-off segment zeroes that
+  group's excess. The preset's peak is ignored here (it is solved).
 
 Everything else is shared between the drivers:
 
@@ -403,10 +407,12 @@ undefined (Python raises a clear ValueError; the UI shows a warning).
 
 One engine, driven from either side of the conservation equation, per cohort
 defined by its **age in 2020** (index `t` = calendar year 2020+t; everything
-per person alive at start-2020). The **direct driver** assumes the peak (per
-segment in the interface, `--peak` in the CLI) and computes the implied
-excess `E = Σ f(t)·D_b(t) / qx(age, 2020)`; the **excess driver** assumes `E`
-per 5-year band and solves the peak. Everything below is common:
+per person alive at start-2020). In the interface, the pullforward SHAPE
+(w(t), horizon, decay, on/off) always comes from the cohort's segment, in
+both drivers. The **direct driver** assumes the peak (per segment; `--peak`
+in the CLI) and computes the implied excess
+`E = Σ f(t)·D_b(t) / qx(age, 2020)`; the **excess driver** assumes `E` per
+5-year band and solves the peak. Everything below is common:
 
 - **Calendar anchoring**: `qx(age, year) = qx_2019(age) × Π (1 − MI)` with the
   improvement scale applied forward from the 2019 table and *backward*
