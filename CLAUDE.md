@@ -11,60 +11,59 @@ This model quantifies the **mortality pullforward effect** from COVID-19: becaus
 ### Interactive interface (no terminal needed)
 
 Double-click **`interface.html`** to open the Mortality Pullforward Explorer in a
-browser. It contains a JavaScript port of the exact same model (verified to match
-the Python results to ~1e-14, including improvement and the equivalent
-multiplier) with:
+browser. It is a JavaScript port of the **unified, calendar-anchored engine**
+(`mortality_model/excess.py`; verified to match Python to ~1e-14 across both
+drivers and all shape combinations). One conservation equation — excess deaths
+in 2020 = deaths harvested from later years — ties the pullforward to the
+cumulative excess, so a single **Pullforward source** toggle picks which side
+the user specifies:
 
-- A **Model mode** switch at the top of the sidebar: "Assume pullforward"
-  (the original mode, everything below) or "**Calibrate from excess**" — the
-  reverse direction, where the user assumes each 5-year age band's cumulative
-  COVID excess deaths (% of one normal year's deaths, default 50%) and the
-  model *solves* the pullforward: the share of 2021's deaths pulled into
-  2020. Two independent shape toggles control the calibration: **how the
-  pullforward (harvest) grades away** — linear (ramps to zero at a grade-out
-  horizon), step (full effect inside the horizon, then zero), or exponential
-  (decay rate, no hard cutoff) — and **how the excess itself is timed across
-  years** — all in 2020 (default), linear fade over N years, or an
-  **empirical** Gaussian fade `x(j) ∝ 2^(−j²/4)` calibrated to the actual
-  COVID pattern (relative to 2020: 84% in 2021, exactly half in 2022, 21% in
-  2023, 6% in 2024, zero from 2025). Every sidebar hint discloses the active
-  shape's formula with live numeric examples.
-  Every shape is normalized so the solved "peak" always means exactly "share
-  of 2021's deaths pulled into 2020", regardless of which shapes are active.
-  Includes a valuation-year input (default 2025; LE gain and multiples are
-  for people alive *then*), a 2010–2035 mortality-trajectory chart (baseline
-  vs COVID line, improvement projected backward and forward from the 2019
-  table), an infeasibility warning when the excess exceeds all deaths
-  available to harvest under the chosen shape, and its own tiles/charts/
-  summary table. Its Python twin is `excess.py` (verified to ~1e-14 against
-  the JS across all shape combinations). See "Calibration mode" below.
-- All 9 named scenario presets, plus free-form sliders for peak fraction,
-  grade-out horizon (0–100; 0 = no pullforward), shape (linear/step/exponential),
-  and decay rate. Step = full peak effect for every year inside the horizon
-  (a box); if that removes 100% of a cohort's remaining deaths the UI shows a
-  "no survivors" warning instead of numbers
-- **Custom segmentation**: user-defined age cutoffs and an optional sex split
-  define input segments (e.g. "<65 / 65+" or "8 segments: 4 age bands × M/F");
-  every segment carries its own full set of pullforward inputs plus an on/off
-  switch, edited via the "Editing segment" selector in the sidebar. Cohorts are
-  matched to segments by their age at the end of COVID. Presets map onto this
-  (age-varying presets become 4 segments at cutoffs 65/75/85, labeled
-  45–64/65–74/75–84/85+)
-- A left input pane that scrolls independently of the page, with collapsible
-  sections, and an **Output view** bar above the results (focus cohort for
-  tiles/charts; sex checkboxes and an editable age list for the summary table)
-- Live-updating life expectancy tiles, charts of f(t), the mortality multiple,
-  and d(t) vs g(t), and a summary table across all ages/sexes
+- **Assume pullforward** (default): peak % (share of 2021's deaths pulled into
+  2020) + how it grades away (linear/step/exponential), set **per segment**
+  (user-defined age cutoffs and optional sex split; cohorts matched on their
+  age in 2020), with the 9 named scenario presets mapping onto segments
+  (age-varying presets → 4 segments at cutoffs 65/75/85). The model reports
+  the **implied cumulative excess** — e.g. the old moderate_base default (65%
+  peak, 7-yr grade-out) implies ~300% of a year's deaths for 65-year-olds,
+  vs the ~50% actually observed.
+- **Solve from excess**: cumulative excess per 5-year age band (% of one
+  normal year's deaths, default 50%) + a global harvest shape; the model
+  *solves* the peak (~10–13% for 50% excess / 7-yr grade-out), with an
+  infeasibility warning (capped at 100%) when the excess exceeds every death
+  available to harvest.
+
+Everything else is shared between the drivers:
+
+- **How the excess is timed** across years — all in 2020 (default), linear
+  fade over N years, or an **empirical** Gaussian fade `x(j) ∝ 2^(−j²/4)`
+  calibrated to the actual COVID pattern (relative to 2020: 84% in 2021,
+  exactly half in 2022, 21% in 2023, 6% in 2024, zero from 2025). Timing only
+  moves *when* the deaths happen; totals and the peak are untouched. Every
+  sidebar hint discloses the active shape's formula with live numeric examples
+- A **valuation year** (default 2025): LE gain, equivalent multiplier, and
+  remaining multiples are for people alive *then*
+- Live-updating tiles (peak assumed-or-solved, excess implied-or-assumed, LE
+  gain, equivalent mortality multiplier, baseline LE, alive-vs-baseline) and
+  four charts: the 2010–2035 **mortality trajectory** (baseline vs COVID line,
+  improvement projected backward and forward from the 2019 table), the
+  pullforward by calendar year, the mortality multiple by calendar year (with
+  a first-20-years data table), and the death distribution baseline-vs-COVID;
+  plus a summary table across all ages/sexes (ages are ages **in 2020**)
 - A **Mortality improvement** sidebar group: on/off toggle, flat %/yr rate
-  (default 1%), CSV import of 1D/2D scales (same schema as the Python tool),
-  and client-side template downloads
-- An **Equivalent mortality multiplier** tile and summary-table column
-- A generated `sensitivity.py` / `scenarios.py` command matching the current
-  slider settings (including `--improvement-*` flags), so any interactive
-  result can be reproduced in Python
-- A built-in "How the model works" explainer of the four-step math
+  (default 1%, anchored to the 2019 table), CSV import of 1D/2D scales, and
+  client-side template downloads
+- An **Output view** bar (focus cohort for tiles/charts; sex checkboxes and an
+  editable age list for the summary table), an independently scrolling input
+  pane, and a "How the model works" explainer
+- A generated `excess.py` command matching the current settings (either
+  driver, including `--improvement-*` flags), so any interactive result can
+  be reproduced in Python
 
-The Python code below remains the source of truth for saved CSV output and sweeps.
+The Python code below remains the source of truth for saved CSV output and
+sweeps. Note: `main.py` / `scenarios.py` / `sensitivity.py` run the **legacy
+projection-year engine** (anchored at end-of-COVID 2022, conditioning on
+surviving the whole pullforward); the interface and `excess.py` run the
+unified calendar engine, so their numbers differ slightly.
 
 **Hosting it online:** `interface.html` is fully self-contained (no server, no
 external requests), so any static host works. Two deployments exist:
@@ -81,10 +80,46 @@ external requests), so any static host works. Two deployments exist:
 Nothing entered into the page leaves the visitor's browser; imported CSVs are
 parsed locally.
 
-### Testing sensitivities (easiest — no file editing)
+### The unified engine from the command line (`excess.py`)
 
-Use `sensitivity.py` to try any assumption or sweep a parameter from the
-command line. **This is the recommended way to test "what if" questions.**
+`excess.py` is the Python twin of the interface — the same calendar-anchored
+engine, driven from either side of the conservation equation:
+
+```bash
+python excess.py                       # print full help + worked examples
+python excess.py --run                 # defaults: 50% excess, 7-yr linear grade-out, valued 2025
+
+# Solve-from-excess driver (default): assume the excess, solve the peak
+python excess.py --excess-all 60 --grade-out 10 --valuation-year 2027
+python excess.py --excess "30,30,...,45"   # 21 values, one per 5-yr band (0-4 ... 100+)
+
+# Assume-pullforward driver: assume the peak, the implied excess is reported
+python excess.py --peak 0.65 --grade-out 7
+python excess.py --peak 0.5 --pullforward-shape exponential --decay-rate 0.3
+
+# How the pullforward (harvest) grades away:
+python excess.py --pullforward-shape step --grade-out 3
+python excess.py --pullforward-shape exponential --decay-rate 0.3   # no hard cutoff
+
+# How the excess itself is timed across years (independent of the above):
+python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
+python excess.py --excess-shape empirical                  # matches actual 2020-2024 pattern
+
+python excess.py --age 65 --sex male --save   # CSVs to output/excess_calibration/
+```
+
+It prints the peak per cohort (solved, or given with the implied excess), LE
+gain at the valuation year, the equivalent flat multiplier, and a 2010–2035
+mortality trajectory table. Improvement flags (`--improvement-rate/-table`,
+`--no-improvement`) work as in `sensitivity.py`. Ages passed with `--age` are
+ages **in 2020**.
+
+### Testing sensitivities with the legacy engine (`sensitivity.py`)
+
+Use `sensitivity.py` to sweep a parameter from the command line. It runs the
+**legacy projection-year engine** (see "Core Model (legacy scripts)" below),
+so its levels differ slightly from the interface / `excess.py`, but sweeps
+and comparisons remain useful.
 
 ```bash
 # See all options and worked examples
@@ -117,35 +152,7 @@ Knobs: `--peak` (peak_fraction), `--grade-out` (horizon years), `--decay`
 Sweeping `peak`/`grade-out`/`decay`/`improvement` prints a table of LE change
 vs the swept value.
 
-### Calibrating from COVID excess (the reverse direction)
-
-Use `excess.py` when the starting point is *how many extra deaths COVID
-caused* rather than an assumed pullforward curve:
-
-```bash
-python excess.py                       # print full help + worked examples
-python excess.py --run                 # defaults: 50% excess, 7-yr linear grade-out, valued 2025
-python excess.py --excess-all 60 --grade-out 10 --valuation-year 2027
-python excess.py --excess "30,30,...,45"   # 21 values, one per 5-yr band (0-4 ... 100+)
-
-# How the pullforward (harvest) grades away:
-python excess.py --pullforward-shape step --grade-out 3
-python excess.py --pullforward-shape exponential --decay-rate 0.3   # no hard cutoff
-
-# How the excess itself is timed across years (independent of the above):
-python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
-python excess.py --excess-shape empirical                  # matches actual 2020-2024 pattern
-
-python excess.py --age 65 --sex male --save   # CSVs to output/excess_calibration/
-```
-
-It prints the solved "pulled from 2021" share per cohort (much smaller than
-the excess % — see Calibration mode below), LE gain at the valuation year,
-the equivalent flat multiplier, and a 2010–2035 mortality trajectory table.
-Improvement flags (`--improvement-rate/-table`, `--no-improvement`) work as
-in `sensitivity.py`. Ages passed with `--age` are ages **in 2020**.
-
-### Running named scenarios
+### Running named scenarios (legacy engine)
 
 Open a terminal in this folder and run:
 
@@ -319,12 +326,12 @@ Rules (both schemas):
 Mortality acceleration/
 ├── CLAUDE.md                       # This file
 ├── How to run this tool.txt        # Step-by-step guide for non-technical users
-├── interface.html                  # Interactive browser UI (double-click to open)
+├── interface.html                  # Interactive browser UI: the unified engine, both drivers
 ├── config.py                       # All parameters, named presets, apply_overrides()
-├── main.py                         # Entry point: runs default scenario
-├── sensitivity.py                  # CLI to test/sweep assumptions with no file editing
-├── scenarios.py                    # Runs named scenarios; compare_all table
-├── excess.py                       # CLI for the excess-calibration mode (solved pullforward)
+├── main.py                         # LEGACY engine entry point: runs default scenario
+├── sensitivity.py                  # LEGACY engine CLI: test/sweep assumptions
+├── scenarios.py                    # LEGACY engine: named scenarios; compare_all table
+├── excess.py                       # UNIFIED engine CLI (assume peak OR solve from excess)
 ├── improvement_template_1d.csv     # Editable 1D improvement template (age → rate)
 ├── improvement_template_2d.csv     # Editable 2D improvement template (age × year)
 ├── deploy/
@@ -334,15 +341,20 @@ Mortality acceleration/
     ├── __init__.py
     ├── ssa_table.py                 # SSA life table: embedded SSA 2019 + CSV loading
     ├── improvement.py               # Mortality improvement scales: flat / 1D / 2D CSV
-    ├── pullforward.py               # f(t) distribution: linear, step, and exponential shapes
-    ├── cohort.py                    # d(t), g(t), effective qx, mortality multiples
-    ├── excess.py                    # excess-calibration: solved pullforward, calendar qx, trajectory
+    ├── pullforward.py               # LEGACY f(t) distribution: linear/step/exponential shapes
+    ├── cohort.py                    # LEGACY d(t), g(t), effective qx, mortality multiples
+    ├── excess.py                    # UNIFIED calendar engine: both drivers, calendar qx, trajectory
     └── analysis.py                  # LE calc, equivalent flat multiplier, print, CSV save
 ```
 
 ---
 
-## Core Model (for reference)
+## Core Model — legacy projection-year engine (main.py / scenarios.py / sensitivity.py)
+
+The original engine, still used by the legacy CLI scripts. It counts
+projection years from the end of COVID (2022) and conditions on surviving the
+entire pullforward. The interface no longer uses it — see "The unified
+calendar engine" below.
 
 ### Step A — Death Distribution
 
@@ -387,10 +399,14 @@ undefined (Python raises a clear ValueError; the UI shows a warning).
 
 ---
 
-### Calibration mode (`excess.py` / interface "Calibrate from excess")
+### The unified calendar engine (`excess.py` / the interface)
 
-Runs the logic in reverse, per cohort defined by its **age in 2020** (index
-`t` = calendar year 2020+t; everything per person alive at start-2020):
+One engine, driven from either side of the conservation equation, per cohort
+defined by its **age in 2020** (index `t` = calendar year 2020+t; everything
+per person alive at start-2020). The **direct driver** assumes the peak (per
+segment in the interface, `--peak` in the CLI) and computes the implied
+excess `E = Σ f(t)·D_b(t) / qx(age, 2020)`; the **excess driver** assumes `E`
+per 5-year band and solves the peak. Everything below is common:
 
 - **Calendar anchoring**: `qx(age, year) = qx_2019(age) × Π (1 − MI)` with the
   improvement scale applied forward from the 2019 table and *backward*

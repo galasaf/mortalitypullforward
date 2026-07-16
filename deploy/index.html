@@ -209,10 +209,12 @@
 <div class="wrap">
   <header class="page">
     <h1>Mortality Pullforward Explorer</h1>
-    <p>COVID disproportionately killed people who were already close to dying. This tool lets you set
-       how far into the future those deaths were &ldquo;pulled from,&rdquo; and instantly see what that
-       implies for the life expectancy of the people who survived. Inputs are on the left &mdash;
-       optionally segmented by age band and sex &mdash; and the view controls sit above the results.</p>
+    <p>COVID disproportionately killed people who were already close to dying: deaths were
+       &ldquo;pulled forward&rdquo; from the years just ahead. The pullforward and the cumulative excess
+       mortality it caused are two sides of one equation, so you can drive this tool from either side
+       &mdash; assume the pullforward and see the excess it implies, or assume each age group&rsquo;s
+       observed excess and let the model solve the pullforward. Either way it shows the bent mortality
+       trajectory and what survivors gain in life expectancy, standing at any valuation year.</p>
   </header>
 
   <div class="app">
@@ -220,17 +222,17 @@
     <aside class="controls card" aria-label="Model inputs">
 
       <details class="ctl-group" open>
-        <summary>Model mode</summary>
+        <summary>Pullforward source</summary>
         <div class="grp-body">
-          <div class="seg" role="group" aria-label="Model mode">
-            <button type="button" id="mode-direct" aria-pressed="true">Assume pullforward</button>
-            <button type="button" id="mode-excess" aria-pressed="false">Calibrate from excess</button>
+          <div class="seg" role="group" aria-label="Pullforward source">
+            <button type="button" id="drv-direct" aria-pressed="true">Assume pullforward</button>
+            <button type="button" id="drv-excess" aria-pressed="false">Solve from excess</button>
           </div>
-          <p class="hint" id="mode-hint">Assume the pullforward curve f(t) directly — the original model.</p>
+          <p class="hint" id="drv-hint">The pullforward and the cumulative excess are two sides of one equation (excess deaths = harvested deaths) &mdash; pick which side you specify; the model derives the other.</p>
         </div>
       </details>
 
-      <details class="ctl-group mode-direct" open>
+      <details class="ctl-group drv-direct" open>
         <summary>Scenario preset</summary>
         <div class="grp-body">
           <select id="preset" aria-label="Scenario preset"></select>
@@ -238,7 +240,7 @@
         </div>
       </details>
 
-      <details class="ctl-group mode-direct" open>
+      <details class="ctl-group drv-direct" open>
         <summary>Pullforward inputs <span class="seg-badge" id="seg-badge">1 segment</span></summary>
         <div class="grp-body">
           <label for="seg-select" class="hint" style="margin:0 0 4px">Editing segment:</label>
@@ -268,7 +270,7 @@
             <div class="sub-body">
               <input type="range" id="peak" min="0" max="1" step="0.01" value="0.65"
                      aria-label="Peak fraction of year-1 deaths pulled into COVID">
-              <p class="hint">Of the people who would have died in the first year after COVID, this share died during COVID instead. Realistic range: 30&ndash;80%. 0% disables the effect for this segment.</p>
+              <p class="hint">Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30&ndash;80%. 0% disables the effect for this segment. The cumulative excess this implies is shown in the tiles.</p>
             </div>
           </details>
 
@@ -294,7 +296,7 @@
         </div>
       </details>
 
-      <details class="ctl-group mode-direct" open>
+      <details class="ctl-group drv-direct" open>
         <summary>Segmentation</summary>
         <div class="grp-body">
           <div class="ctl-row">
@@ -306,22 +308,15 @@
             <input type="text" id="segdef-cutoffs" class="ages-input" style="width:140px" value="65, 75, 85"
                    aria-label="Comma-separated age cutoffs defining the segments">
           </div>
-          <p class="hint">Cutoffs split the ages into bands: e.g. &ldquo;65&rdquo; gives &lt;65 and 65+; &ldquo;65, 75, 85&rdquo; gives &lt;65, 65&ndash;74, 75&ndash;84, 85+. Leave empty for one all-ages segment. Segments are matched on the cohort&rsquo;s age at the end of COVID.</p>
+          <p class="hint">Cutoffs split the ages into bands: e.g. &ldquo;65&rdquo; gives &lt;65 and 65+; &ldquo;65, 75, 85&rdquo; gives &lt;65, 65&ndash;74, 75&ndash;84, 85+. Leave empty for one all-ages segment. Segments are matched on the cohort&rsquo;s age in 2020.</p>
           <button type="button" class="copy-btn" id="segdef-apply">Rebuild segments</button>
           <p class="hint">Existing inputs carry over to the new segments where they overlap. The segments then appear in the &ldquo;Editing segment&rdquo; list above.</p>
         </div>
       </details>
 
-      <details class="ctl-group mode-excess hidden" open>
-        <summary>COVID excess calibration</summary>
+      <details class="ctl-group drv-excess hidden" open>
+        <summary>Solve-from-excess inputs</summary>
         <div class="grp-body">
-          <div class="ctl-row">
-            <label for="ex-val" style="font-size:13px">Valuation year</label>
-            <input type="number" id="ex-val" min="2021" max="2039" step="1" value="2025"
-                   aria-label="Valuation year: standing point for the remaining effect">
-          </div>
-          <p class="hint">All excess deaths are attributed to 2020; harvesting starts in 2021. Standing at this year, the tiles and table show the remaining mortality dip and the LE gain for people still alive.</p>
-
           <details class="sub" open>
             <summary>How the pullforward grades away</summary>
             <div class="sub-body">
@@ -365,6 +360,18 @@
               <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band"></div>
             </div>
           </details>
+        </div>
+      </details>
+
+      <details class="ctl-group" open>
+        <summary>Timing &amp; valuation</summary>
+        <div class="grp-body">
+          <div class="ctl-row">
+            <label for="ex-val" style="font-size:13px">Valuation year</label>
+            <input type="number" id="ex-val" min="2021" max="2039" step="1" value="2025"
+                   aria-label="Valuation year: standing point for the remaining effect">
+          </div>
+          <p class="hint">You are standing at this year: the LE tiles and the table condition on being alive then and show the remaining effect. The excess deaths land in 2020 (or spread per the timing below); harvesting starts in 2021.</p>
 
           <details class="sub" open>
             <summary>How the excess is timed across years</summary>
@@ -399,7 +406,7 @@
               <input type="number" id="imp-rate" min="-20" max="20" step="0.1" value="1.0"
                      aria-label="Flat annual mortality improvement rate in percent">
             </div>
-            <p class="hint">Mortality falls this much each calendar year at every age, compounding from 2022. Default: 1%.</p>
+            <p class="hint">Mortality falls this much each calendar year at every age, anchored to the 2019 table (compounded forward past 2035, divided out backward to 2010). Default: 1%.</p>
             <div class="ctl-row" style="margin-top:10px">
               <button type="button" class="copy-btn" id="imp-import" style="margin-top:0">Import CSV&hellip;</button>
               <button type="button" class="copy-btn hidden" id="imp-clear" style="margin-top:0">Remove</button>
@@ -428,9 +435,9 @@
       <div class="card outview" aria-label="Output view">
         <div class="ov-row">
           <div class="ov-block">
-            <p class="eyebrow" id="focus-eyebrow">Focus cohort &mdash; tiles &amp; charts</p>
+            <p class="eyebrow" id="focus-eyebrow">Focus cohort &mdash; tiles &amp; charts (age in 2020)</p>
             <div class="ov-inline">
-              <input type="range" id="focus-age" min="30" max="90" step="1" value="65" aria-label="Cohort age at end of COVID">
+              <input type="range" id="focus-age" min="30" max="90" step="1" value="65" aria-label="Cohort age in 2020">
               <span class="readout" id="cohort-out">Male, age 65</span>
             </div>
             <div class="seg" role="group" aria-label="Focus sex" style="margin-top:8px; max-width:200px">
@@ -453,69 +460,11 @@
         </div>
       </div>
 
-      <div class="tiles mode-direct" id="tiles" aria-label="Focus cohort results">
-        <div class="tile hero">
-          <div class="label">LE gained by survivors</div>
-          <div class="value" id="tile-change">&ndash;</div>
-          <div class="sub" id="tile-change-sub"></div>
-        </div>
-        <div class="tile hero">
-          <div class="label">Equiv. mortality multiplier</div>
-          <div class="value" id="tile-mult">&ndash;</div>
-          <div class="sub" id="tile-mult-sub">flat qx scaling matching survivors&rsquo; LE</div>
-        </div>
-        <div class="tile">
-          <div class="label">LE before COVID</div>
-          <div class="value" id="tile-pre">&ndash;</div>
-          <div class="sub" id="tile-pre-sub">SSA 2019 baseline</div>
-        </div>
-        <div class="tile">
-          <div class="label">LE for survivors</div>
-          <div class="value" id="tile-post">&ndash;</div>
-          <div class="sub">after removing pulled-forward deaths</div>
-        </div>
-        <div class="tile">
-          <div class="label">Survived COVID</div>
-          <div class="value" id="tile-surv">&ndash;</div>
-          <div class="sub">share of the original cohort</div>
-        </div>
-      </div>
-
-      <div class="card chart-card mode-direct">
-        <h2>The assumption: pullforward curve f(t)</h2>
-        <p class="sub" id="f-sub">Share of each future year&rsquo;s deaths that instead happened during COVID.</p>
-        <div class="chart-box" id="chart-f"></div>
-      </div>
-
-      <div class="card chart-card mode-direct">
-        <h2>The result: survivor mortality vs the baseline table</h2>
-        <p class="sub">Ratio of the survivors&rsquo; death rate to the baseline rate. Below 1.0 means survivors are healthier than the table; it returns to 1.0 once the pullforward window has passed.</p>
-        <div class="chart-box" id="chart-mult"></div>
-        <details class="data-table">
-          <summary>View chart data as a table (first 20 years)</summary>
-          <div class="table-scroll"><table class="summary" id="detail-table"></table></div>
-        </details>
-      </div>
-
-      <div class="card chart-card mode-direct">
-        <h2>Death distribution: original cohort vs survivors</h2>
-        <p class="sub">Probability of dying in each future year. Pulled-forward deaths are removed from the early years, shifting the survivors&rsquo; curve to the right.</p>
-        <div class="chart-box" id="chart-dist"></div>
-        <div class="legend" id="dist-legend"></div>
-      </div>
-
-      <div class="card chart-card mode-direct">
-        <h2>All cohorts under these assumptions</h2>
-        <p class="sub" id="summary-sub">Each cohort uses the inputs of the segment it belongs to. The highlighted row is your focus cohort.</p>
-        <div class="table-scroll"><table class="summary" id="summary-table"></table></div>
-      </div>
-
-      <!-- ===== Excess-calibration mode results ===== -->
-      <div class="tiles mode-excess hidden" id="ex-tiles" aria-label="Excess calibration results">
+      <div class="tiles" id="ex-tiles" aria-label="Focus cohort results">
         <div class="tile hero">
           <div class="label">Pulled forward from 2021</div>
           <div class="value" id="ex-tile-peak">&ndash;</div>
-          <div class="sub" id="ex-tile-peak-sub">solved: share of 2021 deaths that happened in 2020 instead</div>
+          <div class="sub" id="ex-tile-peak-sub"></div>
         </div>
         <div class="tile hero">
           <div class="label" id="ex-tile-gain-label">LE gain at 2025</div>
@@ -533,7 +482,7 @@
           <div class="sub" id="ex-tile-base-sub"></div>
         </div>
         <div class="tile">
-          <div class="label">Died from COVID excess</div>
+          <div class="label" id="ex-tile-x-label">Cumulative excess</div>
           <div class="value" id="ex-tile-x">&ndash;</div>
           <div class="sub" id="ex-tile-x-sub"></div>
         </div>
@@ -544,126 +493,126 @@
         </div>
       </div>
 
-      <div class="card chart-card mode-excess hidden">
+      <div class="card chart-card">
         <h2 id="ex-traj-title">Mortality trajectory with and without COVID</h2>
         <p class="sub" id="ex-traj-sub"></p>
         <div class="chart-box" id="chart-traj"></div>
         <div class="legend" id="ex-traj-legend"></div>
       </div>
 
-      <div class="card chart-card mode-excess hidden">
-        <h2>The solved pullforward: share of each year&rsquo;s deaths pulled into 2020</h2>
+      <div class="card chart-card">
+        <h2>The pullforward: share of each year&rsquo;s deaths pulled into 2020</h2>
         <p class="sub" id="ex-f-sub"></p>
         <div class="chart-box" id="chart-fcal"></div>
       </div>
 
-      <div class="card chart-card mode-excess hidden">
+      <div class="card chart-card">
         <h2>Survivor mortality multiple by calendar year</h2>
-        <p class="sub" id="ex-mult-sub">The focus cohort&rsquo;s death rate vs the no-COVID baseline: the 2020 spike (the excess), a dip below 1.0 while the harvesting plays out, and exactly 1.0 once the grade-out horizon passes.</p>
+        <p class="sub" id="ex-mult-sub">The focus cohort&rsquo;s death rate vs the no-COVID baseline: the 2020 spike (the excess), a dip below 1.0 while the harvesting plays out, and back to 1.0 once the pullforward has fully graded away.</p>
         <div class="chart-box" id="chart-multcal"></div>
+        <details class="data-table">
+          <summary>View chart data as a table (first 20 years)</summary>
+          <div class="table-scroll"><table class="summary" id="detail-table"></table></div>
+        </details>
       </div>
 
-      <div class="card chart-card mode-excess hidden">
-        <h2>All cohorts under this calibration</h2>
+      <div class="card chart-card">
+        <h2>Death distribution: baseline vs with COVID</h2>
+        <p class="sub" id="ex-dist-sub">Unconditional share of the 2020 cohort dying in each calendar year (both curves total 100% over a lifetime). COVID shifts deaths into the spike from the harvest years just after it.</p>
+        <div class="chart-box" id="chart-dist"></div>
+        <div class="legend" id="dist-legend"></div>
+      </div>
+
+      <div class="card chart-card">
+        <h2>All cohorts under these assumptions</h2>
         <p class="sub" id="ex-summary-sub"></p>
         <div class="table-scroll"><table class="summary" id="ex-summary-table"></table></div>
       </div>
 
       <details class="explainer">
-        <summary>How the model works &mdash; the four steps</summary>
+        <summary>How the model works</summary>
         <div class="body">
-          <p>The model asks one question: <strong>if COVID&rsquo;s victims were mostly people who were going to
-             die soon anyway, how much healthier is the surviving population?</strong> It answers in four steps,
-             computed independently for each starting age and sex.</p>
+          <p>COVID disproportionately killed people who were already close to dying, &ldquo;pulling forward&rdquo;
+             deaths that would otherwise have happened over the next several years. The model asks:
+             <strong>given how large that pullforward was, how much healthier is the surviving population
+             &mdash; and how did it bend the mortality trajectory?</strong> It is computed independently for
+             each cohort, defined by its age in 2020 and sex, in absolute deaths per person alive at the
+             start of 2020.</p>
 
-          <h3>Step A &mdash; When would the cohort have died anyway?</h3>
-          <p>From the SSA 2019 period life table, compute the probability that a cohort member dies in each
-             future year <var>t</var>. These are unconditional probabilities &mdash; they sum to exactly 100%
-             because everyone eventually dies.</p>
-          <div class="formula">d(t) = S(t&minus;1) &times; qx(age + t &minus; 1),&nbsp;&nbsp; where S = probability of surviving to year t</div>
+          <h3>Step 1 &mdash; The no-COVID baseline</h3>
+          <p>The SSA 2019 period life table is anchored at calendar 2019 and moved through time with the
+             mortality improvement scale &mdash; compounded forward for later years and divided out backward
+             to 2010. Each cohort&rsquo;s baseline path follows its own age/calendar-year diagonal:</p>
+          <div class="formula">qx(age, year) = qx<sub>2019</sub>(age) &times; &Pi; (1 &minus; MI)&nbsp;&nbsp;&nbsp;&nbsp;D<sub>b</sub>(t) = A<sub>b</sub>(t) &times; qx(age+t, 2020+t)</div>
 
-          <h3>Step B &mdash; Which of those deaths did COVID pull forward?</h3>
-          <p>This is the assumption you control, separately for each <strong>segment</strong> (age band, and
-             optionally sex). f(t) is the share of year-<var>t</var> deaths that instead happened during COVID.
-             The peak fraction sets its height at t=1; the shape and grade-out set how fast it fades for deaths
-             further in the future. A cohort uses the inputs of the segment containing its age at the end of
-             COVID. Grade-out 0, peak 0%, or unticking &ldquo;active&rdquo; all mean no pullforward for that segment.</p>
-          <div class="formula">linear:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; f(t) = peak &times; max(0, 1 &minus; (t&minus;1) / grade_out)<br>step:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; f(t) = peak &nbsp;for t &le; grade_out, else 0<br>exponential:&nbsp; f(t) = peak &times; e<sup>&minus;decay &times; (t&minus;1)</sup></div>
-          <p>Note the difference between linear and step: <em>linear</em> starts at the peak and ramps
-             straight down to zero at the horizon (halfway out, only half the peak effect applies), while
-             <em>step</em> applies the full peak effect to every year inside the horizon. &ldquo;Everyone who
-             would have died within G years died during COVID instead&rdquo; is the step shape with peak = 100%
-             &mdash; but note that if the horizon covers a cohort&rsquo;s whole remaining lifetime, that
-             setting leaves no survivors and the post-COVID results are undefined.</p>
+          <h3>Step 2 &mdash; The pullforward, specified from either end</h3>
+          <p>One conservation equation ties everything together: the extra deaths in 2020 must equal the
+             deaths that go missing from later years &mdash; and they go missing from the cohort <em>as it
+             ages</em> (a 60-year-old&rsquo;s death pulled forward from 2023 would have happened at age 63).
+             Because mortality rises with age, a fixed number of borrowed deaths is a shrinking share of each
+             later year&rsquo;s larger death count, which automatically mutes the future effect.</p>
+          <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t&ge;1</sub> peak &times; w(t) &times; D<sub>b</sub>(t)</div>
+          <p>The <strong>Pullforward source</strong> toggle picks which side you specify:</p>
+          <ul>
+            <li><strong>Assume pullforward</strong> &mdash; you set the peak (the share of 2021&rsquo;s deaths
+                pulled into 2020) and how it grades away, per segment (age band &times; optional sex). The
+                model computes the cumulative excess this <em>implies</em>.</li>
+            <li><strong>Solve from excess</strong> &mdash; you set each 5-year age band&rsquo;s cumulative
+                excess (% of one normal year&rsquo;s deaths) and the model <em>solves</em> the peak. If the
+                excess exceeds every death available to harvest, the solve is infeasible: the pullforward is
+                capped at 100% and a warning is shown.</li>
+          </ul>
+          <p><strong>How the pullforward grades away</strong>, w(t), has three shapes (normalized so every
+             shape equals 1.0 in 2021 &mdash; &ldquo;peak&rdquo; always means the same thing):</p>
+          <div class="formula">linear:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; w(t) = max(0, 1 &minus; (t&minus;1)/G)<br>step:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; w(t) = 1 &nbsp;for t &le; G, else 0<br>exponential:&nbsp; w(t) = e<sup>&minus;rate &times; (t&minus;1)</sup>&nbsp;&nbsp;(fat tail, no cutoff)</div>
 
-          <h3>Step C &mdash; What does the surviving population look like?</h3>
-          <p>Remove the pulled-forward deaths from each year and renormalize. The removed mass is the share of
-             the cohort that died during COVID; what remains is the survivors&rsquo; death distribution.</p>
-          <div class="formula">g(t) = d(t) &times; (1 &minus; f(t)) / Z,&nbsp;&nbsp; where Z = &Sigma; d(t)(1&minus;f(t)) = share who survived COVID</div>
+          <h3>Step 3 &mdash; When the excess deaths themselves happen</h3>
+          <p>Independently of the harvest shape, the excess can land all in 2020 (default), fade linearly to
+             zero over N years (x(j) &prop; N&minus;j), or follow the <strong>empirical</strong> Gaussian fade
+             x(j) &prop; 2<sup>&minus;j&sup2;/4</sup> calibrated to the observed COVID pattern &mdash; relative
+             to 2020&rsquo;s level: 2021 = 84%, 2022 = 50% (exactly half), 2023 = 21%, 2024 = 6%, zero from
+             2025 (shares of the total: 38% / 32% / 19% / 8% / 2%). Timing only moves <em>when</em> the deaths
+             happen; the totals and the peak are untouched.</p>
 
-          <h3>Step D &mdash; What does that imply for mortality and life expectancy?</h3>
-          <p>Convert g(t) back into annual death rates for survivors, and compare them to the baseline table. The
-             ratio is the <strong>mortality multiple</strong> &mdash; below 1.0 means the survivors are healthier
-             than the table says, because the frailest members were culled. Life expectancy is the area under
-             the survival curve; the headline number is survivors&rsquo; LE minus baseline LE.</p>
-          <div class="formula">multiple(t) = effective_qx(t) / qx_baseline(t),&nbsp;&nbsp; LE = &Sigma; S(t)</div>
+          <h3>Step 4 &mdash; The COVID path, multiples, and life expectancy at the valuation year</h3>
+          <p>The COVID path adds the excess and subtracts the harvest, year by year; dividing by the surviving
+             population gives the with-COVID death rates and the <strong>mortality multiple</strong>:</p>
+          <div class="formula">D<sub>c</sub>(t) = D<sub>b</sub>(t) + x(t) &minus; h(t),&nbsp;&nbsp; multiple(t) = (D<sub>c</sub>/A<sub>c</sub>) / (D<sub>b</sub>/A<sub>b</sub>)</div>
+          <p>The multiple spikes to 1+E in 2020, dips below 1.0 while the harvesting plays out, and returns to
+             exactly 1.0 once a linear/step horizon has passed (exponential only approaches it). Standing at
+             the <strong>valuation year</strong>, the model conditions on being alive then and compares
+             remaining life expectancy with and without COVID &mdash; the LE gain is pure selection: the
+             frailest died early, so those still standing are healthier than the table says.</p>
 
           <h3>Mortality improvement (the baseline itself gets better)</h3>
-          <p>By default the model assumes mortality keeps improving 1% per year at every age (people
-             have historically kept getting healthier). Projection year <var>t</var> uses
-             qx &times; (1 &minus; rate)<sup>t&minus;1</sup>, compounding from 2022. Both the baseline LE and the
-             survivors&rsquo; LE include it, so the headline LE change still isolates the pullforward effect.
-             You can set a different flat rate, turn it off, or import a CSV of rates by age (1D) or by
-             age and calendar year (2D) from the sidebar. Improvement applies to all segments.</p>
+          <p>By default mortality improves 1% per year at every age, anchored to the 2019 table. Both the
+             baseline LE and the survivors&rsquo; LE include it, so the LE gain isolates the pullforward
+             effect. Set a different flat rate, turn it off, or import a CSV of rates by age (1D) or by age
+             and calendar year (2D) from the sidebar.</p>
 
           <h3>The equivalent mortality multiplier</h3>
           <p>A second way to express the survivors&rsquo; advantage: the single flat percentage applied to the
-             <em>entire</em> baseline qx table that would produce the same life expectancy the survivors have.
-             For example 92% means &ldquo;the survivors&rsquo; LE gain is what you&rsquo;d get by cutting mortality
-             8% at every age, forever.&rdquo; It is found by bisection and is exact to ~1e-6 years.</p>
-
-          <h3>The other direction: calibrating from COVID excess deaths</h3>
-          <p>The <strong>&ldquo;Calibrate from excess&rdquo;</strong> mode runs the logic backwards from an
-             observable. You assume each age group&rsquo;s <em>cumulative</em> extra COVID deaths, as a % of one
-             normal year&rsquo;s deaths for that group (in 5-year bands), and attribute them all to 2020. Those
-             deaths were borrowed from the future, so the same number must be <em>missing</em> from 2021 onward
-             &mdash; and they are missing from the cohort <em>as it ages</em>: a 60-year-old&rsquo;s death pulled
-             forward from 2023 would have happened at age 63, in 2023. Because mortality rises with age, a fixed
-             number of borrowed deaths is a shrinking share of each later year&rsquo;s (larger) death count
-             &mdash; the aging of the cohort automatically mutes the future effect. Given the excess and a harvest
-             shape, the model <em>solves</em> the one remaining unknown &mdash; the share of 2021&rsquo;s deaths
-             pulled into 2020 (&ldquo;peak&rdquo;, always normalized so every shape equals 1.0 at t=1):</p>
-          <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t&ge;1</sub> peak &times; w(t) &times; D<sub>baseline</sub>(t)</div>
-          <p><strong>How the pullforward grades away</strong> (w(t) above) is a second toggle, independent of the
-             direct-pullforward mode&rsquo;s own shape setting: <em>Linear</em> ramps the peak down to zero at the
-             grade-out horizon; <em>Step</em> applies the full peak to every year inside the horizon, then drops
-             to zero; <em>Exponential</em> decays the peak at a chosen rate with no hard cutoff (a fat tail, like
-             the direct mode&rsquo;s exponential shape). <strong>How the excess itself is timed</strong> across
-             years is a separate, independent toggle: <em>All in 2020</em> (the default) puts the whole cumulative
-             excess in a single year; <em>Linear fade</em> spreads it triangularly, x(j) &prop; N&minus;j, from
-             2020 down to zero over a chosen number of years (over 3 years: 50% / 33% / 17% of the total);
-             <em>Empirical</em> is a <strong>Gaussian fade, x(j) &prop; 2<sup>&minus;j&sup2;/4</sup></strong>,
-             calibrated to the actual COVID pattern &mdash; relative to 2020&rsquo;s level: 2021 = 84% (slightly
-             lower), 2022 = 50% (exactly half), 2023 = 21% (muted), 2024 = 6% (almost normal), zero from 2025.
-             As shares of the total excess that is 38% / 32% / 19% / 8% / 2%. Changing how the excess is timed
-             only re-times <em>when</em> the deaths happened (the total X and the solved peak are unaffected);
-             changing the harvest shape changes how the <em>repayment</em> grades away.</p>
-          <p>Bookkeeping is in absolute deaths per person alive at the start of 2020. The COVID path adds the
-             excess (under its chosen timing) and subtracts the harvested deaths (under its chosen shape);
-             dividing by the surviving population gives the with-COVID death rates and the mortality multiple
-             (spike to 1+E in 2020, dip below 1.0, back to exactly 1.0 once a linear/step horizon has passed --
-             exponential only approaches 1.0, since it has no hard cutoff), and &mdash; standing at the valuation
-             year &mdash; the remaining LE gain for people still alive. The trajectory chart anchors the SSA 2019
-             table at calendar 2019 and uses the improvement scale both forward (to 2035) and backward (to 2010).
-             If the assumed excess exceeds all deaths available to harvest under the chosen shape, the solve is
-             infeasible: the pullforward is capped at 100% and a warning is shown. The Python twin of this mode is
-             <code>excess.py</code>.</p>
+             <em>entire</em> baseline qx table (from the valuation year on) that would produce the same life
+             expectancy the survivors have. For example 99% means &ldquo;the survivors&rsquo; LE gain is what
+             you&rsquo;d get by cutting mortality 1% at every age, forever.&rdquo; Found by bisection, exact to
+             ~1e-6 years.</p>
 
           <h3>Reading the outputs</h3>
           <ul>
-            <li>The effect is <strong>largest for older cohorts</strong>: more of their near-term deaths fell inside the pullforward window.</li>
-            <li>For linear/step harvest shapes, the multiple <strong>returns to 1.0</strong> once the grade-out horizon (and any later-ending excess timing) has passed &mdash; the model assumes no lasting health advantage, only selection. Exponential harvest has no hard horizon, so it only approaches 1.0.</li>
-            <li>The math mirrors the Python code in <code>mortality_model/</code>. Each cohort depends only on its own segment&rsquo;s inputs, so the command in the sidebar reproduces the focus cohort exactly; run it once per segment (changing <code>--age</code>/<code>--sex</code> and the values) to cover all segments.</li>
+            <li>The two drivers are mirror images: the observed ~50% cumulative excess solves to only a
+                ~10&ndash;13% peak, while assuming a 65% peak implies an excess of ~300% of a year&rsquo;s
+                deaths &mdash; toggling between them shows whether an assumption is consistent with what
+                actually happened.</li>
+            <li>The effect is <strong>largest for older cohorts</strong>: more of their near-term deaths fell
+                inside the pullforward window.</li>
+            <li>For linear/step harvest shapes, the multiple <strong>returns to 1.0</strong> once the horizon
+                (and any later-ending excess timing) has passed &mdash; no lasting health advantage, only
+                selection. Exponential has no hard horizon, so it only approaches 1.0.</li>
+            <li>The math mirrors <code>mortality_model/excess.py</code>; the sidebar command reproduces the
+                focus cohort exactly with <code>excess.py</code> (in the assume-pullforward driver, run it once
+                per segment). The older <code>scenarios.py</code> / <code>sensitivity.py</code> scripts use the
+                legacy projection-year engine anchored at 2022, so their numbers differ slightly from this
+                page.</li>
           </ul>
         </div>
       </details>
@@ -696,7 +645,6 @@ const QX = { male: interpolateQx(MALE_ANCHORS), female: interpolateQx(FEMALE_ANC
 const getQx = (age, sex) => QX[sex][Math.min(age, MAX_AGE)];
 
 /* ---- Mortality improvement (mirrors mortality_model/improvement.py) ---- */
-const BASE_YEAR = 2022;
 const MAX_SANE_RATE = 0.20;
 
 // scale objects: {mode:'flat', rate}
@@ -712,25 +660,6 @@ function improvementRate(scale, age, year, sex) {
   const ys = scale.years;
   const y = Math.min(Math.max(year, ys[0]), ys[ys.length - 1]);
   return arr[a][ys.indexOf(y)];
-}
-// PRODUCT over j=1..nYears of (1 - rate(age, BASE_YEAR + j, sex))
-function cumulativeFactor(scale, age, nYears, sex) {
-  if (!scale || nYears <= 0) return 1;
-  if (scale.mode !== "2d") return Math.pow(1 - improvementRate(scale, age, BASE_YEAR + 1, sex), nYears);
-  let f = 1;
-  for (let j = 1; j <= nYears; j++) f *= 1 - improvementRate(scale, age, BASE_YEAR + j, sex);
-  return f;
-}
-// Baseline qx vector for a cohort, with improvement baked in along the
-// age x calendar-year diagonal (age startingAge+i is reached after i years).
-function cohortQx(startingAge, sex, scale) {
-  const n = MAX_AGE - startingAge + 1;
-  const qx = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    qx[i] = Math.min(1, getQx(startingAge + i, sex) * cumulativeFactor(scale, startingAge + i, i, sex));
-  }
-  qx[n - 1] = 1.0;
-  return qx;
 }
 
 /* ---- Equivalent flat multiplier (mirrors analysis.solve_equivalent_flat_multiplier) ---- */
@@ -854,73 +783,13 @@ function templateCsv(kind) {
   return t;
 }
 
-/* ---- Pullforward f(t): per-segment params ----
-   params = { enabled, shape:'linear'|'step'|'exponential', peakFraction, gradeOutYears, decayRate }
-   Grade-out 0 (or enabled=false, or peak 0) means no pullforward. */
-function pullforwardFraction(t, params) {
-  if (t <= 0 || !params.enabled) return 0;
-  if (params.shape === "linear") {
-    const G = params.gradeOutYears;
-    if (G <= 0) return 0;
-    return params.peakFraction * Math.max(0, 1 - (t - 1) / G);
-  }
-  if (params.shape === "step") {
-    // Constant box: full peak effect for every year inside the horizon.
-    return t <= params.gradeOutYears ? params.peakFraction : 0;
-  }
-  return params.peakFraction * Math.exp(-params.decayRate * (t - 1));
-}
-
-function runCohort(startingAge, sex, params, scale) {
-  const n = MAX_AGE - startingAge + 1;
-  // Step 0: baseline qx with mortality improvement baked in (scale may be null)
-  const qxVec = cohortQx(startingAge, sex, scale);
-  // Step A: d(t)
-  const d = new Float64Array(n);
-  let survival = 1.0;
-  for (let i = 0; i < n; i++) {
-    d[i] = survival * qxVec[i];
-    survival *= 1 - qxVec[i];
-  }
-  let total = 0;
-  for (let i = 0; i < n; i++) total += d[i];
-  for (let i = 0; i < n; i++) d[i] /= total;
-  // Step B: f(t) and removal
-  const f = new Float64Array(n), dRem = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    f[i] = pullforwardFraction(i + 1, params);
-    dRem[i] = d[i] * (1 - f[i]);
-  }
-  // Step C: g(t). If f removed 100% of remaining deaths there is no surviving
-  // cohort, so post-COVID quantities are undefined (rendered as a warning).
-  let survivorFraction = 0;
-  for (let i = 0; i < n; i++) survivorFraction += dRem[i];
-  const noSurvivors = survivorFraction <= 1e-12;
-  const g = new Float64Array(n);
-  if (noSurvivors) g.fill(NaN);
-  else for (let i = 0; i < n; i++) g[i] = dRem[i] / survivorFraction;
-  // Step D: effective qx, multiples (vs the improved baseline)
-  const effQx = new Float64Array(n), multiples = new Float64Array(n);
-  let cum = 0;
-  for (let i = 0; i < n; i++) {
-    const Sg = 1 - cum;
-    effQx[i] = Sg > 1e-15 ? g[i] / Sg : NaN;
-    multiples[i] = qxVec[i] > 0 && !Number.isNaN(effQx[i]) ? effQx[i] / qxVec[i] : NaN;
-    cum += g[i];
-  }
-  const le = (dist) => { let s = 1, sum = 0; for (let i = 0; i < n; i++) { sum += s; s -= dist[i]; } return sum; };
-  const lePre = le(d), lePost = noSurvivors ? NaN : le(g);
-  // Equivalent flat multiplier: uniform qx scaling that reproduces lePost
-  const equivMult = noSurvivors ? NaN : solveEquivMultiplier(lePost, qxVec);
-  return { startingAge, sex, survivorFraction, noSurvivors, lePre, lePost, leChange: lePost - lePre, equivMult, qxVec, d, f, g, effQx, multiples };
-}
-
-/* ============ Excess-calibration mode (mirrors mortality_model/excess.py) ============
-   Assume each age band's CUMULATIVE excess COVID deaths (as a fraction of one
-   normal year's deaths), attribute them all to 2020, and SOLVE the pullforward:
-   the share of 2021's deaths pulled into 2020, grading linearly to zero over G
-   years. The harvested deaths come from the cohort AS IT AGES, so rising qx
-   automatically mutes the effect in later years. */
+/* ============ The unified engine (mirrors mortality_model/excess.py) ============
+   One conservation equation ties the pullforward to the cumulative excess
+   (excess deaths in 2020 = deaths harvested from later years), so the model
+   runs from either end: assume the peak (share of 2021's deaths pulled into
+   2020) and the excess is IMPLIED, or assume each band's excess and the peak
+   is SOLVED. The harvested deaths come from the cohort AS IT AGES, so rising
+   qx automatically mutes the effect in later years. */
 const TABLE_BASE_YEAR = 2019;   // calendar year of the SSA 2019 base table
 const COVID_YEAR = 2020;        // all excess deaths are attributed to this year
 const N_BANDS = 21;             // 5-year bands: 0-4, ..., 95-99, 100+
@@ -992,7 +861,7 @@ function calendarQx(age, year, sex, scale) {
 // Full bookkeeping for one cohort aged `age2020` in 2020; index t = calendar
 // year 2020 + t. All quantities are per person alive at the start of 2020.
 function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valuationYear,
-                          pfShape, decayRate, excShape, spreadYears) {
+                          pfShape, decayRate, excShape, spreadYears, peakGiven) {
   const n = MAX_AGE - age2020 + 1;
   const q = new Float64Array(n);
   for (let t = 0; t < n; t++) q[t] = calendarQx(age2020 + t, COVID_YEAR + t, sex, scale);
@@ -1001,24 +870,38 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
   Ab[0] = 1;
   for (let t = 0; t < n; t++) { Db[t] = Ab[t] * q[t]; Ab[t + 1] = Ab[t] - Db[t]; }
 
-  // Excess deaths in 2020: E x one year's mortality
-  const E = excessByBand[bandIndex(age2020)];
-  const X = E * q[0];
-
-  // Solve the peak so harvested deaths (2021+) equal the excess, under the
-  // chosen harvest shape (w(1) is always normalized to 1.0).
+  // Harvest shape weights (w(1) is always normalized to 1.0, so `peak`
+  // always means "share of 2021's deaths pulled into 2020").
   const G = gradeOutYears;
   const w = new Float64Array(n);
   for (let t = 0; t < n; t++) w[t] = harvestWeight(t, pfShape, G, decayRate);
-  let denom = 0;
-  for (let t = 0; t < n; t++) denom += w[t] * Db[t];
-  const peak = denom > 0 ? X / denom : Infinity;
-  const infeasible = !Number.isFinite(peak) || peak > 1 + 1e-12;
+
+  let driver, peak, infeasible, E, X, harvested, shortfall;
   const f = new Float64Array(n), h = new Float64Array(n);
-  for (let t = 0; t < n; t++) { f[t] = w[t] > 0 ? Math.min(1, peak * w[t]) : 0; h[t] = f[t] * Db[t]; }
-  let harvested = 0;
-  for (let t = 0; t < n; t++) harvested += h[t];
-  const shortfall = X - harvested;   // > 0 only when infeasible (f capped at 100%)
+  if (peakGiven != null) {
+    // Direct driver: pullforward assumed; the excess it implies follows.
+    driver = "direct";
+    peak = peakGiven;
+    infeasible = false;
+    X = 0;
+    for (let t = 0; t < n; t++) { f[t] = w[t] > 0 ? Math.min(1, peak * w[t]) : 0; h[t] = f[t] * Db[t]; X += h[t]; }
+    E = q[0] > 0 ? X / q[0] : 0;
+    harvested = X;
+    shortfall = 0;
+  } else {
+    // Excess driver: excess assumed; the peak is solved.
+    driver = "excess";
+    E = excessByBand[bandIndex(age2020)];
+    X = E * q[0];
+    let denom = 0;
+    for (let t = 0; t < n; t++) denom += w[t] * Db[t];
+    peak = denom > 0 ? X / denom : Infinity;
+    infeasible = !Number.isFinite(peak) || peak > 1 + 1e-12;
+    for (let t = 0; t < n; t++) { f[t] = w[t] > 0 ? Math.min(1, peak * w[t]) : 0; h[t] = f[t] * Db[t]; }
+    harvested = 0;
+    for (let t = 0; t < n; t++) harvested += h[t];
+    shortfall = X - harvested;   // > 0 only when infeasible (f capped at 100%)
+  }
 
   // Timing of the excess deaths, under the chosen excess-timing shape.
   const x = excessTiming(X, excShape, spreadYears, n);
@@ -1058,15 +941,16 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
     equivMult = solveEquivMultiplier(leSurv, q.slice(tv));
     aliveVsBaseline = Ac[tv] / Ab[tv];
   }
-  return { age2020, sex, n, q, Db, Ab, qc, Dc, Ac, f, x, h, multiple, E, X, peak,
+  return { age2020, sex, driver, n, q, Db, Ab, qc, Dc, Ac, f, x, h, multiple, E, X, peak,
            infeasible, harvested, shortfall, tv, valid, ageAtValuation: age2020 + tv,
            leBase, leSurv, leChange, equivMult, aliveVsBaseline };
 }
 
 // Period mortality at a FIXED age across calendar years: baseline vs COVID.
-// The COVID rate for (age, 2020+k) comes from the cohort that was age-k in 2020.
-function mortalityTrajectory(age, sex, scale, excessByBand, gradeOutYears, valuationYear,
-                              pfShape, decayRate, excShape, spreadYears, yearStart, yearEnd, cache) {
+// The COVID rate for (age, 2020+k) comes from the cohort that was age-k in
+// 2020; `runner(age2020, sex)` supplies each cohort's run (so per-segment
+// inputs in the direct driver are honored).
+function mortalityTrajectory(age, sex, scale, runner, yearStart, yearEnd, cache) {
   const years = [], base = [], covid = [];
   cache = cache || {};
   for (let y = yearStart; y <= yearEnd; y++) {
@@ -1076,8 +960,7 @@ function mortalityTrajectory(age, sex, scale, excessByBand, gradeOutYears, valua
     const k = y - COVID_YEAR, c = age - k;
     if (k < 0 || c < 0 || age > MAX_AGE) { covid.push(b); continue; }
     const key = c + "|" + sex;
-    if (!cache[key]) cache[key] = runExcessCohort(c, sex, scale, excessByBand, gradeOutYears,
-                                                    valuationYear, pfShape, decayRate, excShape, spreadYears);
+    if (!cache[key]) cache[key] = runner(c, sex);
     const r = cache[key];
     covid.push(k < r.n ? r.qc[k] : NaN);
   }
@@ -1152,7 +1035,7 @@ const PRESET_CUTOFFS = [65, 75, 85];  // age bands used by the age-varying prese
 
 /* ============ State ============ */
 const state = {
-  mode: "direct",         // 'direct' (assume f(t)) | 'excess' (calibrate from excess)
+  driver: "direct",       // 'direct' (assume the pullforward) | 'excess' (solve it from excess)
   preset: "moderate_base",
   seg: { bySex: false, cutoffs: PRESET_CUTOFFS.slice() },
   segments: [],           // built in init/applyPreset
@@ -1174,6 +1057,7 @@ const state = {
 function applyPreset(key) {
   const p = PRESETS[key];
   if (!p || key === "custom") return;
+  state.driver = "direct";  // presets describe the assumed-pullforward driver
   state.seg = { bySex: false, cutoffs: p.ageVarying ? PRESET_CUTOFFS.slice() : [] };
   state.segments = buildSegments(state.seg, null);
   state.segments.forEach((s, i) => {
@@ -1351,170 +1235,45 @@ function impCliFlags() {
   return { flags, note };
 }
 
+// Run one cohort under the current driver: direct = per-segment assumed
+// pullforward (excess implied); excess = per-band assumed excess (peak solved).
+function runFor(age, sex, scale) {
+  const ex = state.ex;
+  if (state.driver === "direct") {
+    const p = findSegmentIn(state.segments, age, sex).params;
+    const peak = p.enabled ? p.peakFraction : 0;
+    return runExcessCohort(age, sex, scale, null, p.gradeOutYears, ex.valuationYear,
+                           p.shape, p.decayRate, ex.excShape, ex.spreadYears, peak);
+  }
+  const bands = ex.bandsPct.map((v) => v / 100);
+  return runExcessCohort(age, sex, scale, bands, ex.gradeOut, ex.valuationYear,
+                         ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears, null);
+}
+
 function render() {
-  if (state.mode === "excess") renderExcess();
-  else renderDirect();
-}
-
-function renderDirect() {
-  const scale = activeScale();
-  const fSeg = focusSegment();
-  const r = runCohort(state.focusAge, state.focusSex, fSeg.params, scale);
-  const sexLabel = state.focusSex === "male" ? "Male" : "Female";
-
-  // Tiles
-  $("tile-change").textContent = r.noSurvivors ? "–" : fmt.delta(r.leChange) + " yrs";
-  $("tile-change-sub").textContent = r.noSurvivors
-    ? "no survivors — 100% of remaining deaths pulled into COVID"
-    : `${(r.leChange / r.lePre * 100).toFixed(1)}% more remaining life`;
-  $("tile-mult").textContent = Number.isFinite(r.equivMult) ? (r.equivMult * 100).toFixed(1) + "%" : "–";
-  $("tile-mult-sub").textContent = Number.isFinite(r.equivMult)
-    ? `like cutting every qx by ${((1 - r.equivMult) * 100).toFixed(1)}%`
-    : r.noSurvivors ? "undefined — the cohort is empty" : "flat qx scaling matching survivors’ LE";
-  $("tile-pre").textContent = fmt.yrs(r.lePre) + " yrs";
-  $("tile-pre-sub").textContent = scale ? "SSA 2019 + mortality improvement" : "SSA 2019 baseline (static)";
-  $("tile-post").textContent = r.noSurvivors ? "–" : fmt.yrs(r.lePost) + " yrs";
-  $("tile-surv").textContent = fmt.pct1(r.survivorFraction);
-
-  const n = r.d.length;
-  const years = Array.from({ length: n }, (_, i) => i + 1);
-  const tipTitle = (i) => `Year ${i + 1} · Age ${state.focusAge + i}`;
-
-  // Chart 1: f(t)
-  const fHorizon = Math.min(45, n);
-  makeChart($("chart-f"), {
-    xs: years.slice(0, fHorizon),
-    series: [{ name: "Pulled into COVID", color: C.pullfwd, ys: Array.from(r.f).slice(0, fHorizon), area: true }],
-    yMax: 1.0,
-    yTickFormat: (v) => Math.round(v * 100) + "%",
-    tipFormat: (v) => (v * 100).toFixed(1) + "%",
-    tipTitle, xLabel: "Years from end of COVID (2022)",
-    ariaLabel: "Pullforward fraction by projection year",
-  });
-  const pf = fSeg.params;
-  $("f-sub").textContent = !pf.enabled
-    ? `Pullforward is switched OFF for segment "${fSeg.label}" — the focus cohort has no COVID effect.`
-    : r.noSurvivors
-      ? `⚠ 100% of the focus cohort's remaining deaths fall inside the pullforward, so nobody survives COVID and post-COVID results are undefined. Lower the peak below 100% or shorten the horizon.`
-      : `Share of each future year's deaths that instead happened during COVID. Focus cohort (${sexLabel.toLowerCase()} ${state.focusAge}) uses segment "${fSeg.label}".`;
-
-  // Chart 2: mortality multiple
-  const mHorizon = Math.min(45, n);
-  makeChart($("chart-mult"), {
-    xs: years.slice(0, mHorizon),
-    series: [{ name: "Survivor mortality multiple", color: C.survivor, ys: Array.from(r.multiples).slice(0, mHorizon) }],
-    refY: 1.0, refLabel: "baseline = 1.0",
-    yTickFormat: (v) => v.toFixed(2),
-    tipFormat: (v) => v.toFixed(3) + "×",
-    tipTitle, xLabel: "Years from end of COVID (2022)",
-    ariaLabel: "Mortality multiple by projection year",
-  });
-
-  // Chart 3: d(t) vs g(t)
-  makeChart($("chart-dist"), {
-    xs: years,
-    series: [
-      { name: "Original cohort d(t)", color: C.baseline, ys: Array.from(r.d) },
-      { name: "COVID survivors g(t)", color: C.survivor, ys: Array.from(r.g) },
-    ],
-    yTickFormat: (v) => (v * 100).toFixed(1) + "%",
-    tipFormat: (v) => (v * 100).toFixed(2) + "%",
-    tipTitle, xLabel: "Years from end of COVID (2022)",
-    ariaLabel: "Death distributions for original cohort and survivors",
-  });
-  $("dist-legend").innerHTML =
-    `<span><span class="chip" style="background:${C.baseline}"></span>Original cohort d(t) &mdash; baseline</span>` +
-    `<span><span class="chip" style="background:${C.survivor}"></span>COVID survivors g(t)</span>`;
-
-  // Detail data table
-  let dt = "<tr><th>Year</th><th>Age</th><th>Pulled fwd f(t)</th><th>Baseline qx</th><th>Survivor qx</th><th>Multiple</th></tr>";
-  for (let i = 0; i < Math.min(20, n); i++) {
-    dt += `<tr><td>${i + 1}</td><td>${state.focusAge + i}</td><td>${(r.f[i] * 100).toFixed(1)}%</td>` +
-      `<td>${r.qxVec[i].toFixed(4)}</td>` +
-      `<td>${Number.isFinite(r.effQx[i]) ? r.effQx[i].toFixed(4) : "–"}</td>` +
-      `<td>${Number.isFinite(r.multiples[i]) ? r.multiples[i].toFixed(3) : "–"}</td></tr>`;
-  }
-  $("detail-table").innerHTML = dt;
-
-  // Summary table
-  const sexes = ["male", "female"].filter((sx) => state.viewSexes[sx]);
-  let st = "<tr><th>Cohort</th><th>Segment</th><th>LE before</th><th>LE after</th><th>LE change</th><th>Change %</th><th>Equiv. mult.</th><th>Survived COVID</th></tr>";
-  if (!sexes.length || !state.tableAges.length) {
-    st += `<tr><td colspan="8" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
-  }
-  sexes.forEach((sex, si) => {
-    state.tableAges.forEach((age, i) => {
-      const seg = findSegmentIn(state.segments, age, sex);
-      const row = runCohort(age, sex, seg.params, scale);
-      const isFocus = age === state.focusAge && sex === state.focusSex;
-      const cls = [isFocus ? "focus-row" : "", i === 0 && si > 0 ? "sex-break" : ""].join(" ").trim();
-      st += `<tr${cls ? ` class="${cls}"` : ""}><td>${sex === "male" ? "Male" : "Female"} ${age}</td>` +
-        `<td style="text-align:left;color:var(--ink-3)">${seg.label}${seg.params.enabled ? "" : " (off)"}</td>` +
-        `<td>${fmt.yrs(row.lePre)}</td><td>${row.noSurvivors ? "–" : fmt.yrs(row.lePost)}</td>` +
-        `<td class="delta">${row.noSurvivors ? "–" : fmt.delta(row.leChange)}</td>` +
-        `<td>${row.noSurvivors ? "–" : (row.leChange / row.lePre * 100).toFixed(1) + "%"}</td>` +
-        `<td>${Number.isFinite(row.equivMult) ? (row.equivMult * 100).toFixed(1) + "%" : "–"}</td>` +
-        `<td>${fmt.pct1(row.survivorFraction)}</td></tr>`;
-    });
-  });
-  $("summary-table").innerHTML = st;
-
-  // Readouts
-  const p = activeSegment().params;
-  $("peak-out").textContent = fmt.pct0(p.peakFraction);
-  $("grade-out-out").textContent = p.gradeOutYears === 0 ? "off (0)" : p.gradeOutYears + " yrs";
-  $("decay-out").textContent = p.decayRate.toFixed(2);
-  $("decay-hint").textContent = `Fat tail, no hard cutoff. Effect halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} years.`;
-  $("cohort-out").textContent = `${sexLabel}, age ${state.focusAge}`;
-  $("seg-focus-hint").textContent = `Focus cohort (${sexLabel} ${state.focusAge}) belongs to segment "${fSeg.label}".`;
-  $("preset-desc").textContent = PRESETS[state.preset].desc;
-  $("seg-badge").textContent = state.segments.length + (state.segments.length === 1 ? " segment" : " segments");
-
-  // CLI command (reproduces the FOCUS cohort; each segment is its own run)
-  const imp = impCliFlags();
-  const impFlags = imp.flags;
-  const impNote = imp.note;
-  let cmd, note = "";
-  if (state.preset !== "custom" && impFlags.length === 0) {
-    cmd = `python scenarios.py ${state.preset}`;
-    note = "Runs this exact named scenario from config.py (with the default 1%/yr improvement).";
-  } else if (state.preset !== "custom") {
-    cmd = ["python sensitivity.py", `--base ${state.preset}`, ...impFlags].join(" ");
-    note = "Runs the named preset with your improvement setting." + impNote;
-  } else {
-    const parts = ["python sensitivity.py", `--peak ${pf.enabled ? pf.peakFraction : 0}`];
-    if (pf.shape === "exponential") {
-      parts.push("--shape exponential", `--decay ${pf.decayRate}`);
-    } else if (pf.shape === "step") {
-      parts.push("--shape step", `--grade-out ${pf.gradeOutYears}`);
-    } else {
-      parts.push(`--grade-out ${pf.gradeOutYears}`);
-    }
-    parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...impFlags);
-    cmd = parts.join(" ");
-    note = "Reproduces the focus cohort (each cohort only depends on its own segment's inputs). "
-      + "Re-run with other --age/--sex values and that segment's inputs to cover the rest." + impNote;
-  }
-  $("cli-cmd").textContent = cmd;
-  $("cli-note").textContent = note;
-}
-
-/* ============ Excess-mode rendering ============ */
-function renderExcess() {
   const scale = activeScale();
   const ex = state.ex;
-  const bands = ex.bandsPct.map((v) => v / 100);
+  const direct = state.driver === "direct";
   const V = ex.valuationYear;
   const sexLabel = state.focusSex === "male" ? "Male" : "Female";
+  const fSeg = focusSegment();
+  const runner = (a, sx) => runFor(a, sx, scale);
   const cache = {};
-  const r = runExcessCohort(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, V,
-                            ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears);
+  const r = runFor(state.focusAge, state.focusSex, scale);
 
-  // Tiles
+  // The focus cohort's pullforward shape (its segment's in the direct driver,
+  // the global solve settings in the excess driver).
+  const shape = direct ? fSeg.params.shape : ex.pfShape;
+  const gradeOut = direct ? fSeg.params.gradeOutYears : ex.gradeOut;
+  const decay = direct ? fSeg.params.decayRate : ex.decayRate;
+
+  // --- Tiles ---
   $("ex-tile-peak").textContent = Number.isFinite(r.peak) ? (r.peak * 100).toFixed(1) + "%" : "–";
-  $("ex-tile-peak-sub").innerHTML = r.infeasible
-    ? '<span class="warnline">⚠ over 100% — infeasible; capped at 100%</span>'
-    : "solved: share of 2021 deaths that happened in 2020 instead";
+  $("ex-tile-peak-sub").innerHTML = direct
+    ? `assumed input — share of 2021 deaths that happened in 2020 instead (segment “${fSeg.label}”${fSeg.params.enabled ? "" : ", off"})`
+    : (r.infeasible
+        ? '<span class="warnline">⚠ over 100% — infeasible; capped at 100%</span>'
+        : "solved: share of 2021 deaths that happened in 2020 instead");
   $("ex-tile-gain-label").textContent = `LE gain at ${V}`;
   $("ex-tile-gain").textContent = r.valid ? fmt.delta3(r.leChange) + " yrs" : "–";
   $("ex-tile-gain-sub").textContent = r.valid
@@ -1524,14 +1283,15 @@ function renderExcess() {
   $("ex-tile-base-label").textContent = `Baseline LE in ${V}`;
   $("ex-tile-base").textContent = r.valid ? fmt.yrs(r.leBase) + " yrs" : "–";
   $("ex-tile-base-sub").textContent = r.valid ? `survivors: ${fmt.yrs(r.leSurv)} yrs` : "";
-  $("ex-tile-x").textContent = (r.X * 100).toFixed(2) + "%";
-  $("ex-tile-x-sub").textContent = `of the 2020 cohort — ${(r.E * 100).toFixed(0)}% of one year's deaths`;
+  $("ex-tile-x-label").textContent = direct ? "Implied cumulative excess" : "Cumulative excess (assumed)";
+  $("ex-tile-x").textContent = (r.E * 100).toFixed(0) + "%";
+  $("ex-tile-x-sub").textContent = `of one year's deaths — ${(r.X * 100).toFixed(2)}% of the 2020 cohort`
+    + (direct ? " (what the assumed pullforward adds up to)" : "");
   $("ex-tile-alive-label").textContent = `Alive in ${V} vs baseline`;
   $("ex-tile-alive").textContent = r.valid ? (r.aliveVsBaseline * 100).toFixed(2) + "%" : "–";
 
-  // Chart 1: trajectory at the focus age, 2010–2035
-  const traj = mortalityTrajectory(state.focusAge, state.focusSex, scale, bands, ex.gradeOut, V,
-                                    ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears, 2010, 2035, cache);
+  // --- Chart 1: trajectory at the focus age, 2010–2035 ---
+  const traj = mortalityTrajectory(state.focusAge, state.focusSex, scale, runner, 2010, 2035, cache);
   makeChart($("chart-traj"), {
     xs: traj.years,
     series: [
@@ -1551,8 +1311,8 @@ function renderExcess() {
     `<span><span class="chip" style="background:${C.baseline}"></span>Baseline (no COVID)</span>` +
     `<span><span class="chip" style="background:${C.pullfwd}"></span>With COVID excess + harvesting</span>`;
 
-  // Chart 2: solved f(t) by calendar year (focus cohort)
-  const pfHorizon = ex.pfShape === "exponential" ? Math.min(40, r.n - 1) : ex.gradeOut;
+  // --- Chart 2: pullforward by calendar year (focus cohort) ---
+  const pfHorizon = shape === "exponential" ? Math.min(40, r.n - 1) : Math.max(1, gradeOut);
   const fYears = [], fVals = [];
   for (let t = 1; t <= Math.min(pfHorizon + 1, r.n - 1); t++) { fYears.push(COVID_YEAR + t); fVals.push(r.f[t]); }
   makeChart($("chart-fcal"), {
@@ -1562,19 +1322,21 @@ function renderExcess() {
     tipFormat: (v) => (v * 100).toFixed(2) + "%",
     tipTitle: (i) => `${fYears[i]} · age ${state.focusAge + (fYears[i] - COVID_YEAR)}`,
     xLabel: "Calendar year",
-    ariaLabel: "Solved pullforward share by calendar year",
+    ariaLabel: "Pullforward share by calendar year",
   });
-  const pfShapeDesc = ex.pfShape === "step"
-    ? `the full 2021 peak applies to every year up to ${ex.gradeOut} years out, then drops to zero`
-    : ex.pfShape === "exponential"
-      ? `the 2021 peak decays exponentially (rate ${ex.decayRate}), with no hard cutoff`
-      : `grades linearly from the 2021 peak to zero over ${ex.gradeOut} years`;
+  const pfShapeDesc = shape === "step"
+    ? `the full 2021 peak applies to every year up to ${gradeOut} years out, then drops to zero`
+    : shape === "exponential"
+      ? `the 2021 peak decays exponentially (rate ${decay}), with no hard cutoff`
+      : `grades linearly from the 2021 peak to zero over ${gradeOut} years`;
   $("ex-f-sub").innerHTML = (r.infeasible
     ? `<span class="warnline">⚠ Infeasible: the assumed excess exceeds all deaths available to harvest under this shape — repaying it would take ${(r.peak * 100).toFixed(0)}% of 2021's deaths. The pullforward was capped at 100% and ${(r.shortfall * 100).toFixed(2)}% of the cohort stays unrepaid; lengthen the horizon or lower the excess.</span> `
     : "") +
-    `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020): the 2021 peak is solved so the harvested deaths repay the 2020 excess exactly, then ${pfShapeDesc}. Because the cohort ages into higher mortality, the same borrowed deaths are an ever-smaller share of each year's death count.`;
+    (direct
+      ? `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020) uses segment “${fSeg.label}”: the 2021 peak is your assumed input, then ${pfShapeDesc}. The implied cumulative excess is simply what these harvested deaths add up to.`
+      : `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020): the 2021 peak is solved so the harvested deaths repay the 2020 excess exactly, then ${pfShapeDesc}. Because the cohort ages into higher mortality, the same borrowed deaths are an ever-smaller share of each year's death count.`);
 
-  // Chart 3: mortality multiple by calendar year (focus cohort)
+  // --- Chart 3: mortality multiple by calendar year + detail table ---
   const excEnd = excessWindowEnd(ex.excShape, ex.spreadYears);
   const mEnd = Math.min(r.n - 1, Math.max(15, pfHorizon + 3, excEnd + 3));
   const mYears = [], mVals = [];
@@ -1590,21 +1352,54 @@ function renderExcess() {
     xLabel: "Calendar year",
     ariaLabel: "Mortality multiple by calendar year",
   });
+  let dt = "<tr><th>Year</th><th>Age</th><th>Pulled fwd f(t)</th><th>Baseline qx</th><th>With-COVID qx</th><th>Multiple</th></tr>";
+  for (let i = 0; i < Math.min(20, r.n); i++) {
+    dt += `<tr><td>${COVID_YEAR + i}</td><td>${state.focusAge + i}</td><td>${(r.f[i] * 100).toFixed(1)}%</td>` +
+      `<td>${r.q[i].toFixed(4)}</td>` +
+      `<td>${Number.isFinite(r.qc[i]) ? r.qc[i].toFixed(4) : "–"}</td>` +
+      `<td>${Number.isFinite(r.multiple[i]) ? r.multiple[i].toFixed(3) : "–"}</td></tr>`;
+  }
+  $("detail-table").innerHTML = dt;
 
-  // Summary table (ages are ages IN 2020)
+  // --- Chart 4: death distribution, baseline vs with COVID ---
+  const dHorizon = Math.min(45, r.n);
+  const dYears = [];
+  for (let t = 0; t < dHorizon; t++) dYears.push(COVID_YEAR + t);
+  makeChart($("chart-dist"), {
+    xs: dYears,
+    series: [
+      { name: "Baseline deaths", color: C.baseline, ys: Array.from(r.Db).slice(0, dHorizon) },
+      { name: "With COVID", color: C.pullfwd, ys: Array.from(r.Dc).slice(0, dHorizon) },
+    ],
+    vlineX: V, vlineLabel: "valuation " + V,
+    yTickFormat: (v) => (v * 100).toFixed(1) + "%",
+    tipFormat: (v) => (v * 100).toFixed(2) + "%",
+    tipTitle: (i) => `${dYears[i]} · age ${state.focusAge + i}`,
+    xLabel: "Calendar year",
+    ariaLabel: "Death distributions, baseline vs with COVID",
+  });
+  $("dist-legend").innerHTML =
+    `<span><span class="chip" style="background:${C.baseline}"></span>Baseline deaths by year (no COVID)</span>` +
+    `<span><span class="chip" style="background:${C.pullfwd}"></span>With COVID (spike, then deficit)</span>`;
+
+  // --- Summary table (ages are ages IN 2020) ---
   const sexes = ["male", "female"].filter((sx) => state.viewSexes[sx]);
-  let st = `<tr><th>Cohort (2020)</th><th>Age ${V}</th><th>Excess</th><th>Pulled from 2021</th><th>Alive vs base</th><th>LE base</th><th>LE surv</th><th>LE gain</th><th>Equiv. mult.</th></tr>`;
+  const excessHead = direct ? "Excess (implied)" : "Excess";
+  let st = `<tr><th>Cohort (2020)</th><th>Age ${V}</th>` + (direct ? "<th>Segment</th>" : "") +
+    `<th>${excessHead}</th><th>Pulled from 2021</th><th>Alive vs base</th><th>LE base</th><th>LE surv</th><th>LE gain</th><th>Equiv. mult.</th></tr>`;
+  const nCols = direct ? 10 : 9;
   if (!sexes.length || !state.tableAges.length) {
-    st += `<tr><td colspan="9" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
+    st += `<tr><td colspan="${nCols}" style="text-align:left;color:var(--ink-3)">Nothing selected — tick a sex and enter at least one age in the view bar above.</td></tr>`;
   }
   sexes.forEach((sex, si) => {
     state.tableAges.forEach((age, i) => {
-      const row = runExcessCohort(age, sex, scale, bands, ex.gradeOut, V,
-                                  ex.pfShape, ex.decayRate, ex.excShape, ex.spreadYears);
+      const row = runFor(age, sex, scale);
+      const seg = findSegmentIn(state.segments, age, sex);
       const isFocus = age === state.focusAge && sex === state.focusSex;
       const cls = [isFocus ? "focus-row" : "", i === 0 && si > 0 ? "sex-break" : ""].join(" ").trim();
       st += `<tr${cls ? ` class="${cls}"` : ""}><td>${sex === "male" ? "Male" : "Female"} ${age}</td>` +
         `<td>${row.ageAtValuation}</td>` +
+        (direct ? `<td style="text-align:left;color:var(--ink-3)">${seg.label}${seg.params.enabled ? "" : " (off)"}</td>` : "") +
         `<td>${(row.E * 100).toFixed(0)}%</td>` +
         `<td>${Number.isFinite(row.peak) ? (row.peak * 100).toFixed(1) + "%" : "–"}${row.infeasible ? " ⚠" : ""}</td>` +
         `<td>${row.valid ? (row.aliveVsBaseline * 100).toFixed(2) + "%" : "–"}</td>` +
@@ -1614,27 +1409,47 @@ function renderExcess() {
     });
   });
   $("ex-summary-table").innerHTML = st;
-  $("ex-summary-sub").textContent = `Ages are ages in 2020; each cohort uses its own band's excess. "Pulled from 2021" is the solved peak pullforward; ⚠ marks infeasible rows (capped at 100%). LE columns stand at ${V}. The highlighted row is your focus cohort.`;
+  $("ex-summary-sub").textContent = direct
+    ? `Ages are ages in 2020; each cohort uses its segment's assumed pullforward, and the excess column shows what that implies. LE columns stand at ${V}. The highlighted row is your focus cohort.`
+    : `Ages are ages in 2020; each cohort uses its own band's excess. "Pulled from 2021" is the solved peak pullforward; ⚠ marks infeasible rows (capped at 100%). LE columns stand at ${V}. The highlighted row is your focus cohort.`;
 
-  // Readouts + view bar
-  $("ex-grade-out").textContent = ex.gradeOut + " yrs";
+  // --- Direct-driver sidebar readouts ---
+  const p = activeSegment().params;
+  $("peak-out").textContent = fmt.pct0(p.peakFraction);
+  $("grade-out-out").textContent = p.gradeOutYears === 0 ? "off (0)" : p.gradeOutYears + " yrs";
+  $("decay-out").textContent = p.decayRate.toFixed(2);
+  $("decay-hint").textContent = `Fat tail, no hard cutoff. Effect halves every ~${(Math.LN2 / p.decayRate).toFixed(1)} years.`;
+  $("seg-focus-hint").textContent = `Focus cohort (${sexLabel} ${state.focusAge} in 2020) belongs to segment "${fSeg.label}".`;
+  $("preset-desc").textContent = (PRESETS[state.preset] || PRESETS.custom).desc;
+  $("seg-badge").textContent = state.segments.length + (state.segments.length === 1 ? " segment" : " segments");
   $("cohort-out").textContent = `${sexLabel}, ${state.focusAge} in 2020 (${r.ageAtValuation} in ${V})`;
 
-  // CLI
+  // --- CLI (unified engine: excess.py either way) ---
   const imp = impCliFlags();
   const parts = ["python excess.py"];
-  const uniform = ex.bandsPct.every((v) => v === ex.bandsPct[0]);
-  if (uniform) parts.push(`--excess-all ${ex.bandsPct[0]}`);
-  else parts.push(`--excess "${ex.bandsPct.join(",")}"`);
-  if (ex.pfShape !== "linear") parts.push(`--pullforward-shape ${ex.pfShape}`);
-  if (ex.pfShape === "exponential") parts.push(`--decay-rate ${ex.decayRate}`);
-  else parts.push(`--grade-out ${ex.gradeOut}`);
+  if (direct) {
+    const pf = fSeg.params;
+    parts.push(`--peak ${pf.enabled ? pf.peakFraction : 0}`);
+    if (pf.shape !== "linear") parts.push(`--pullforward-shape ${pf.shape}`);
+    if (pf.shape === "exponential") parts.push(`--decay-rate ${pf.decayRate}`);
+    else parts.push(`--grade-out ${Math.max(1, pf.gradeOutYears)}`);
+  } else {
+    const uniform = ex.bandsPct.every((v) => v === ex.bandsPct[0]);
+    if (uniform) parts.push(`--excess-all ${ex.bandsPct[0]}`);
+    else parts.push(`--excess "${ex.bandsPct.join(",")}"`);
+    if (ex.pfShape !== "linear") parts.push(`--pullforward-shape ${ex.pfShape}`);
+    if (ex.pfShape === "exponential") parts.push(`--decay-rate ${ex.decayRate}`);
+    else parts.push(`--grade-out ${ex.gradeOut}`);
+  }
   parts.push(`--valuation-year ${V}`);
   if (ex.excShape !== "instant") parts.push(`--excess-shape ${ex.excShape}`);
   if (ex.excShape === "linear") parts.push(`--excess-spread ${ex.spreadYears}`);
   parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...imp.flags);
   $("cli-cmd").textContent = parts.join(" ");
-  $("cli-note").textContent = "Reproduces the focus cohort and the trajectory at this age; drop --age/--sex for the full table." + imp.note;
+  $("cli-note").textContent = (direct
+    ? "Reproduces the focus cohort (each cohort depends only on its own segment's inputs; re-run per segment for the rest). "
+    : "Reproduces the focus cohort and the trajectory at this age; drop --age/--sex for the full table. ")
+    + imp.note;
 }
 
 /* ============ Wiring ============ */
@@ -1749,18 +1564,15 @@ function syncControls() {
 function markCustom() { state.preset = "custom"; }
 function activeParams() { return activeSegment().params; }
 
-function setMode(m) {
-  state.mode = m;
-  $("mode-direct").setAttribute("aria-pressed", m === "direct");
-  $("mode-excess").setAttribute("aria-pressed", m === "excess");
-  $("mode-hint").textContent = m === "direct"
-    ? "Assume the pullforward curve f(t) directly — the original model."
-    : "Assume each age band's cumulative COVID excess deaths; the model solves the implied pullforward, then values the remaining effect at your chosen year.";
-  document.querySelectorAll(".mode-direct").forEach((el) => el.classList.toggle("hidden", m !== "direct"));
-  document.querySelectorAll(".mode-excess").forEach((el) => el.classList.toggle("hidden", m !== "excess"));
-  $("focus-eyebrow").innerHTML = m === "excess"
-    ? "Focus age &mdash; tiles &amp; charts (age in 2020)"
-    : "Focus cohort &mdash; tiles &amp; charts";
+function setDriver(d) {
+  state.driver = d;
+  $("drv-direct").setAttribute("aria-pressed", d === "direct");
+  $("drv-excess").setAttribute("aria-pressed", d === "excess");
+  $("drv-hint").textContent = d === "direct"
+    ? "You assume the pullforward (peak % and how it grades away, per segment); the model reports the cumulative excess mortality it implies."
+    : "You assume each age band's cumulative excess mortality; the model solves the pullforward peak that repays it.";
+  document.querySelectorAll(".drv-direct").forEach((el) => el.classList.toggle("hidden", d !== "direct"));
+  document.querySelectorAll(".drv-excess").forEach((el) => el.classList.toggle("hidden", d !== "excess"));
   syncControls();
   render();
 }
@@ -1783,7 +1595,7 @@ function init() {
     state.preset = sel.value;
     applyPreset(sel.value);
     $("segdef-cutoffs").value = state.seg.cutoffs.join(", ");
-    syncControls(); render();
+    setDriver("direct");  // presets describe the assumed-pullforward driver
   });
 
   // Per-segment inputs
@@ -1804,11 +1616,11 @@ function init() {
     setTimeout(() => { b.textContent = "Apply these inputs to all segments"; }, 1400);
   });
 
-  // Model mode
-  $("mode-direct").addEventListener("click", () => setMode("direct"));
-  $("mode-excess").addEventListener("click", () => setMode("excess"));
+  // Pullforward source (driver)
+  $("drv-direct").addEventListener("click", () => setDriver("direct"));
+  $("drv-excess").addEventListener("click", () => setDriver("excess"));
 
-  // Excess-calibration inputs
+  // Solve-from-excess inputs
   const bandsBox = $("ex-bands");
   for (let i = 0; i < N_BANDS; i++) {
     const lab = document.createElement("label");

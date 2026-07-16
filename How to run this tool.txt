@@ -36,15 +36,34 @@ bar — section headers click open/closed). The VIEW controls
 are at the TOP RIGHT, above the results. Every time you
 change something, the results update instantly.
 
+ONE MODEL, TWO WAYS IN. The extra deaths COVID caused in
+2020 and the deaths that go missing from later years are
+two sides of the same coin — they must be equal. The
+"Pullforward source" switch at the very top picks which
+side YOU specify:
+  - "Assume pullforward" (this Part): you set how big the
+    pullforward was, and the tool reports the cumulative
+    excess deaths that implies.
+  - "Solve from excess" (Part 2B): you set how many extra
+    deaths actually happened, and the tool solves how big
+    the pullforward must have been.
+Everything else — the charts, the valuation year, the
+excess timing, the tables — is the same either way.
+
 Step 1.  Pick a scenario from the "Scenario preset" dropdown.
          Start with "Moderate base (recommended)" — it is the
          most defensible set of assumptions.
 
 Step 2.  Look at the boxes at the top right.
-         The first green box is the headline answer: how many
-         extra years of life expectancy COVID survivors
-         gained. The second green box is the same effect
-         expressed as an equivalent flat mortality cut.
+         The first green box is the pullforward peak: the
+         share of 2021's deaths that happened in 2020
+         instead. The second green box is the headline
+         answer: the life expectancy gained by people still
+         alive at the valuation year (2025 by default —
+         change it in "Timing & valuation"). Another box
+         shows the cumulative excess deaths your assumption
+         IMPLIES — compare it with the ~50% actually
+         observed to sanity-check the assumption.
 
 Step 3.  Choose whose numbers you want to see, in the
          "Output view" bar above the results:
@@ -118,13 +137,14 @@ TIP: There is no Save button and you cannot break anything.
 
 
 ==========================================================
- PART 2B — THE SECOND MODE: CALIBRATE FROM COVID EXCESS
+ PART 2B — THE OTHER WAY IN: SOLVE FROM EXCESS DEATHS
 ==========================================================
 
-At the very top of the left pane there is a "Model mode"
-switch with two buttons. The second button, "Calibrate
-from excess", runs the model BACKWARDS from something
-observable: how many extra deaths COVID actually caused.
+The second button of the "Pullforward source" switch,
+"Solve from excess", runs the same model BACKWARDS from
+something observable: how many extra deaths COVID
+actually caused. Same charts, same tables — only the
+input side changes.
 
 The idea: you say how large each age group's TOTAL extra
 COVID deaths were, as a percentage of one normal year's
@@ -146,11 +166,14 @@ first green box). There are two SEPARATE toggles for how
 this all grades away over time — one for the pullforward
 (repayment) side, one for the excess (spike) side.
 
-WHAT TO SET (left pane, "COVID excess calibration"):
+WHAT TO SET (left pane, "Solve-from-excess inputs" —
+plus the shared "Timing & valuation" section below it):
 
-  - "Valuation year" (normally 2025): you are standing at
-    this year. The LE gain and the table show the
-    remaining effect for people still alive at this year.
+  - "Valuation year" (in "Timing & valuation", normally
+    2025): you are standing at this year. The LE gain and
+    the table show the remaining effect for people still
+    alive at this year. This applies in BOTH directions
+    of the model.
 
   - "How the pullforward grades away": three buttons.
       Linear (default) — the solved 2021 share fades in a
@@ -167,10 +190,11 @@ WHAT TO SET (left pane, "COVID excess calibration"):
     type a number next to "Set all to (%)" and click
     Apply.
 
-  - "How the excess is timed across years": three buttons,
-    completely independent of the pullforward toggle above
-    — this only controls WHEN the excess deaths happened,
-    not how they get repaid.
+  - "How the excess is timed across years" (in "Timing &
+    valuation"; applies in BOTH directions of the model):
+    three buttons, completely independent of the
+    pullforward shape — this only controls WHEN the
+    excess deaths happened, not how they get repaid.
       All in 2020 (default) — the whole excess lands in a
       single year.
       Linear fade — spreads the same total over several
@@ -187,11 +211,13 @@ WHAT TO SET (left pane, "COVID excess calibration"):
     the totals and the solved pullforward share do not
     change.
 
-WHAT YOU GET:
+WHAT YOU GET (the same outputs in both directions):
 
-  - Green boxes: the solved "Pulled forward from 2021"
-    share, and the life-expectancy gain at the valuation
-    year for someone still alive then.
+  - Green boxes: the "Pulled forward from 2021" share
+    (solved here; assumed in Part 2's direction), and the
+    life-expectancy gain at the valuation year for someone
+    still alive then. Plus the cumulative excess (assumed
+    here; implied in Part 2's direction).
 
   - A chart of the death rate for your focus age from
     2010 to 2035: the smooth baseline (the mortality
@@ -201,8 +227,9 @@ WHAT YOU GET:
     normal. This is the clearest picture of how COVID
     bent the mortality trajectory.
 
-  - Charts of the solved pullforward by year and of the
-    survivors' mortality vs baseline by calendar year.
+  - Charts of the pullforward by year, the survivors'
+    mortality vs baseline by calendar year, and the
+    cohort's death distribution with and without COVID.
 
   - The all-cohorts table (ages there are ages IN 2020).
 
@@ -210,13 +237,15 @@ If a warning saying "Infeasible" appears, the excess you
 typed is larger than ALL the deaths available to harvest
 under the chosen shape — lengthen the horizon (or use a
 slower decay rate for Exponential) or lower the excess for
-that group.
+that group. (This can only happen in this direction; an
+assumed pullforward is never infeasible.)
 
-The Python twin of this mode is excess.py — the sidebar
-"Run it in the codebase" box always shows the exact
-command for your current settings, e.g.:
+The Python twin of the whole tool is excess.py — the
+sidebar "Run it in the codebase" box always shows the
+exact command for your current settings, e.g.:
 
   python excess.py --excess-all 50 --grade-out 7 --valuation-year 2025
+  python excess.py --peak 0.65 --grade-out 7      (Part 2's direction)
 
 
 ==========================================================

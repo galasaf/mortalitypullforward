@@ -1,14 +1,19 @@
 """
-excess.py - COVID excess-mortality CALIBRATION mode.
+excess.py - the unified COVID pullforward model (calendar-anchored).
 
-Instead of assuming the pullforward directly, start from the cumulative
-excess mortality each age group suffered from COVID (as a % of one normal
-year's deaths for that group, in 5-year bands), attribute it to 2020 (or
-spread it over a few years), and let the model SOLVE the pullforward: the
-share of 2021's deaths that were pulled into 2020, grading away over time
-under a shape you choose. Standing at the valuation year (default 2025), it
-reports the remaining mortality dip and the life-expectancy gain for people
-still alive.
+The pullforward has two equivalent descriptions tied together by one
+conservation equation (excess deaths in 2020 = deaths harvested from later
+years), so you can drive the model from EITHER end:
+
+  * Assume the EXCESS (default): the cumulative excess mortality per age
+    group (% of one normal year's deaths, in 5-year bands) -> the model
+    SOLVES the pullforward peak (the share of 2021's deaths pulled into
+    2020).
+  * Assume the PULLFORWARD (--peak): the peak plus a grade-away shape ->
+    the model reports the cumulative excess this IMPLIES.
+
+Standing at the valuation year (default 2025), it reports the remaining
+mortality dip and the life-expectancy gain for people still alive.
 
 Run `python excess.py` (no arguments) for these worked examples.
 
@@ -19,6 +24,14 @@ BASIC RUNS
                                                   #   7-yr linear grade-out, 2025
   python excess.py --excess-all 60 --grade-out 10
   python excess.py --valuation-year 2027 --age 65 --sex male
+
+----------------------------------------------------------------------------
+DRIVING IT FROM THE PULLFORWARD SIDE INSTEAD
+----------------------------------------------------------------------------
+  python excess.py --peak 0.65 --grade-out 7      # assume 65% of 2021's deaths
+                                                  #   were pulled into 2020; the
+                                                  #   implied excess % is reported
+  python excess.py --peak 0.5 --pullforward-shape exponential --decay-rate 0.3
 
 ----------------------------------------------------------------------------
 HOW THE PULLFORWARD (HARVEST) GRADES AWAY
@@ -124,7 +137,6 @@ def build_scale(args):
 
 
 def describe(args, excess_bands) -> str:
-    uniform = len(set(excess_bands)) == 1
     if args.pullforward_shape == "exponential":
         harvest_desc = f"exponential decay, rate {args.decay_rate} (no hard cutoff)"
     elif args.pullforward_shape == "step":
@@ -138,10 +150,17 @@ def describe(args, excess_bands) -> str:
                        "100/84/50/21/6% of the 2020 level over 2020-2024, zero after")
     else:
         excess_desc = "all in 2020"
+    if args.peak is not None:
+        driver_line = (f"  Pullforward peak  : {args.peak * 100:.0f}% of 2021's deaths "
+                       "(ASSUMED; the cumulative excess is implied)")
+    else:
+        uniform = len(set(excess_bands)) == 1
+        driver_line = ("  Cumulative excess : "
+                       + (f"{excess_bands[0] * 100:.0f}% of one year's deaths, all ages"
+                          if uniform else "per-band (see --excess)")
+                       + " (ASSUMED; the pullforward peak is solved)")
     lines = [
-        f"  Cumulative excess : "
-        + (f"{excess_bands[0] * 100:.0f}% of one year's deaths, all ages"
-           if uniform else "per-band (see --excess)"),
+        driver_line,
         f"  Harvest shape     : {harvest_desc}",
         f"  Excess timing     : {excess_desc}",
         f"  Valuation year    : {args.valuation_year}",
@@ -167,6 +186,10 @@ def main():
     p.add_argument("--excess",
                    help=f"{N_BANDS} comma-separated percentages, one per 5-year band "
                         "(0-4, 5-9, ..., 95-99, 100+)")
+    p.add_argument("--peak", type=float,
+                   help="drive the model from the pullforward side instead: the ASSUMED "
+                        "share of 2021's deaths pulled into 2020 (0..1). Overrides "
+                        "--excess/--excess-all; the implied cumulative excess is reported")
     p.add_argument("--grade-out", type=int, default=7, dest="grade_out",
                    help="years over which the harvesting grades away, for --pullforward-shape "
                         "linear/step (default 7; unused for exponential)")
@@ -205,6 +228,9 @@ def main():
         return
     args = p.parse_args()
 
+    if args.peak is not None and not (0.0 <= args.peak <= 1.0):
+        print("--peak must be between 0 and 1 (e.g. 0.65 = 65% of 2021's deaths).")
+        sys.exit(1)
     if args.pullforward_shape != "exponential" and args.grade_out < 1:
         print("--grade-out must be at least 1 year (for linear/step --pullforward-shape).")
         sys.exit(1)
@@ -223,7 +249,7 @@ def main():
     sexes = [args.sex] if args.sex is not None else ["male", "female"]
 
     print("=" * 78)
-    print("COVID excess-mortality calibration")
+    print("COVID pullforward model (calendar-anchored)")
     print(describe(args, excess_bands))
     print("=" * 78)
 
@@ -233,9 +259,12 @@ def main():
             results.append(run_excess_cohort(
                 age, sex, table, scale, excess_bands, args.grade_out,
                 args.valuation_year, args.pullforward_shape, args.decay_rate,
-                args.excess_shape, args.excess_spread,
+                args.excess_shape, args.excess_spread, 119, args.peak,
             ))
 
+    direct = args.peak is not None
+    excess_col = "Implied excess (%)" if direct else "Excess (%)"
+    peak_col = "Pulled from 2021 (%)" + (" [given]" if direct else " [solved]")
     rows = []
     any_infeasible = False
     for r in results:
@@ -244,8 +273,8 @@ def main():
             "Sex": r["sex"].capitalize(),
             "Age 2020": r["age_2020"],
             f"Age {args.valuation_year}": r["age_at_valuation"],
-            "Excess (%)": round(r["excess_fraction"] * 100, 1),
-            "Pulled from 2021 (%)": round(r["peak"] * 100, 2),
+            excess_col: round(r["excess_fraction"] * 100, 1),
+            peak_col: round(r["peak"] * 100, 2),
             "Alive vs baseline (%)": round(r["alive_vs_baseline"] * 100, 2),
             "LE base (yrs)": round(r["le_base"], 2),
             "LE surv (yrs)": round(r["le_surv"], 2),
@@ -256,11 +285,16 @@ def main():
     df = pd.DataFrame(rows).set_index(["Sex", "Age 2020"])
     print(f"\n=== Standing in {args.valuation_year}: survivors vs the no-COVID baseline ===")
     print(df.to_string())
-    print("\n  Pulled from 2021 (%): the SOLVED peak pullforward -- the share of 2021's")
-    print("  deaths that instead happened in 2020. It is much smaller than the excess %")
-    print("  because the harvested deaths spread over the horizon AND the cohort ages")
-    print("  into higher mortality, so each borrowed death is a smaller share of that")
-    print("  year's (larger) death count.")
+    if direct:
+        print("\n  Implied excess (%): the cumulative excess deaths (as % of one normal")
+        print("  year's deaths) that the ASSUMED pullforward implies, via the same")
+        print("  conservation equation the excess driver solves in reverse.")
+    else:
+        print("\n  Pulled from 2021 (%): the SOLVED peak pullforward -- the share of 2021's")
+        print("  deaths that instead happened in 2020. It is much smaller than the excess %")
+        print("  because the harvested deaths spread over the horizon AND the cohort ages")
+        print("  into higher mortality, so each borrowed death is a smaller share of that")
+        print("  year's (larger) death count.")
     print("  Alive vs baseline (%): population still alive at the valuation year,")
     print("  relative to the no-COVID baseline (the not-yet-harvested deficit).")
     if any_infeasible:
@@ -279,7 +313,7 @@ def main():
         traj = mortality_trajectory(
             traj_age, sex, table, scale, excess_bands, args.grade_out,
             args.valuation_year, args.pullforward_shape, args.decay_rate,
-            args.excess_shape, args.excess_spread,
+            args.excess_shape, args.excess_spread, peak=args.peak,
         )
         trajectories.append(traj)
         print(f"\n=== Mortality trajectory at age {traj_age}, {sex} "
@@ -298,8 +332,9 @@ def main():
             "sex": r["sex"],
             "age_2020": r["age_2020"],
             "age_at_valuation": r["age_at_valuation"],
+            "driver": r["driver"],
             "excess_pct": r["excess_fraction"] * 100,
-            "solved_pull_from_2021_pct": r["peak"] * 100,
+            "pull_from_2021_pct": r["peak"] * 100,
             "infeasible": r["infeasible"],
             "alive_vs_baseline": r["alive_vs_baseline"],
             "le_base": r["le_base"],

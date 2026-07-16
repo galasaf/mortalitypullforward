@@ -1,11 +1,24 @@
 """
-COVID excess-mortality calibration mode.
+The unified, calendar-anchored pullforward engine.
 
-Instead of assuming the pullforward curve f(t) directly, this mode starts from
-an observable: the CUMULATIVE excess mortality each age group suffered because
-of COVID, expressed as a percentage of that group's one-year death rate in
-2020. Example: excess of 50% for 60-year-olds means the group's extra COVID
-deaths equalled half of a normal year's deaths for 60-year-olds.
+The COVID pullforward has two equivalent descriptions linked by one
+conservation equation (excess deaths in 2020 = deaths harvested from later
+years), so the model can be driven from EITHER end:
+
+  "excess" driver — assume the observable: the CUMULATIVE excess mortality
+      each age group suffered because of COVID, as a percentage of that
+      group's one-year death rate in 2020 (excess of 50% for 60-year-olds
+      means the extra COVID deaths equalled half of a normal year's deaths).
+      The model SOLVES the pullforward peak.
+
+  "direct" driver — assume the pullforward itself: the share of 2021's
+      deaths pulled into 2020 (the peak) plus a grade-away shape. The model
+      computes the cumulative excess this IMPLIES, via the same equation in
+      reverse.
+
+Everything downstream — excess timing, the COVID path, mortality multiples,
+the 2010-2035 trajectory, and valuation-year life expectancy — is identical
+for both drivers.
 
 All excess deaths are attributed to a single year (2020). Because the people
 who died early were "borrowed" from future years, the same number of deaths
@@ -226,7 +239,7 @@ def run_excess_cohort(
     sex: str,
     table: pd.DataFrame,
     scale: Optional[ImprovementScale],
-    excess_by_band: list[float],
+    excess_by_band: Optional[list[float]],
     grade_out_years: int,
     valuation_year: int = 2025,
     pullforward_shape: str = "linear",
@@ -234,12 +247,22 @@ def run_excess_cohort(
     excess_shape: str = "instant",
     excess_spread_years: int = 3,
     max_age: int = 119,
+    peak: Optional[float] = None,
 ) -> dict:
     """
-    Full excess-calibration bookkeeping for one cohort (aged `age_2020` in
-    2020). Index t = 0, 1, 2, ... is calendar year 2020 + t; the cohort is
-    aged age_2020 + t in that year. All quantities are per person alive at
-    the start of 2020.
+    Full bookkeeping for one cohort (aged `age_2020` in 2020). Index
+    t = 0, 1, 2, ... is calendar year 2020 + t; the cohort is aged
+    age_2020 + t in that year. All quantities are per person alive at the
+    start of 2020.
+
+    The pullforward peak and the cumulative excess are two sides of one
+    conservation equation (excess deaths = harvested deaths), so exactly one
+    of them is specified:
+      peak=None  -> "excess" driver: E comes from excess_by_band and the
+                    peak is SOLVED (may be infeasible if it exceeds 100%).
+      peak=0..1  -> "direct" driver: the peak is assumed and the excess it
+                    IMPLIES is computed from the same equation in reverse
+                    (excess_by_band may be None; never infeasible).
     """
     n = max_age - age_2020 + 1
 
@@ -254,26 +277,39 @@ def run_excess_cohort(
         D_b[t] = A_b[t] * q[t]
         A_b[t + 1] = A_b[t] - D_b[t]
 
-    # Excess deaths in 2020: E x one year's mortality
-    E = excess_by_band[band_index(age_2020)]
-    X = E * q[0]
-
-    # Solve the pullforward peak so harvested deaths (2021+) equal the excess,
-    # under the chosen harvest shape (w(1) is always normalized to 1.0).
+    # Harvest shape weights (w(1) is always normalized to 1.0, so `peak`
+    # always means "share of 2021's deaths pulled into 2020").
     G = grade_out_years
     w = [harvest_weight(t, pullforward_shape, G, decay_rate) for t in range(n)]
-    denom = 0.0
-    for t in range(n):
-        denom += w[t] * D_b[t]
-    peak = X / denom if denom > 0 else math.inf
-    infeasible = (not math.isfinite(peak)) or peak > 1.0 + 1e-12
 
-    f = [min(1.0, peak * w[t]) if w[t] > 0 else 0.0 for t in range(n)]
-    h = [f[t] * D_b[t] for t in range(n)]
-    harvested = 0.0
-    for t in range(n):
-        harvested += h[t]
-    shortfall = X - harvested  # > 0 only when infeasible (f capped at 100%)
+    if peak is not None:
+        # Direct driver: pullforward assumed; the excess follows.
+        driver = "direct"
+        infeasible = False
+        f = [min(1.0, peak * w[t]) if w[t] > 0 else 0.0 for t in range(n)]
+        h = [f[t] * D_b[t] for t in range(n)]
+        X = 0.0
+        for t in range(n):
+            X += h[t]
+        E = X / q[0] if q[0] > 0 else 0.0
+        harvested = X
+        shortfall = 0.0
+    else:
+        # Excess driver: excess assumed; the peak is solved.
+        driver = "excess"
+        E = excess_by_band[band_index(age_2020)]
+        X = E * q[0]
+        denom = 0.0
+        for t in range(n):
+            denom += w[t] * D_b[t]
+        peak = X / denom if denom > 0 else math.inf
+        infeasible = (not math.isfinite(peak)) or peak > 1.0 + 1e-12
+        f = [min(1.0, peak * w[t]) if w[t] > 0 else 0.0 for t in range(n)]
+        h = [f[t] * D_b[t] for t in range(n)]
+        harvested = 0.0
+        for t in range(n):
+            harvested += h[t]
+        shortfall = X - harvested  # > 0 only when infeasible (f capped at 100%)
 
     # Timing of the excess deaths, under the chosen excess-timing shape.
     x = excess_timing(X, excess_shape, excess_spread_years, n)
@@ -326,6 +362,7 @@ def run_excess_cohort(
     return {
         "age_2020": age_2020,
         "sex": sex,
+        "driver": driver,
         "n": n,
         "years": [COVID_YEAR + t for t in range(n)],
         "ages": [age_2020 + t for t in range(n)],
@@ -362,7 +399,7 @@ def mortality_trajectory(
     sex: str,
     table: pd.DataFrame,
     scale: Optional[ImprovementScale],
-    excess_by_band: list[float],
+    excess_by_band: Optional[list[float]],
     grade_out_years: int,
     valuation_year: int = 2025,
     pullforward_shape: str = "linear",
@@ -373,6 +410,7 @@ def mortality_trajectory(
     year_end: int = TRAJECTORY_END,
     max_age: int = 119,
     cohort_cache: Optional[dict] = None,
+    peak: Optional[float] = None,
 ) -> dict:
     """
     Period mortality for a FIXED age across calendar years: the baseline
@@ -396,7 +434,7 @@ def mortality_trajectory(
             cache[key] = run_excess_cohort(
                 c, sex, table, scale, excess_by_band, grade_out_years,
                 valuation_year, pullforward_shape, decay_rate,
-                excess_shape, excess_spread_years, max_age,
+                excess_shape, excess_spread_years, max_age, peak,
             )
         r = cache[key]
         covid.append(r["q_covid"][k] if k < r["n"] else float("nan"))
