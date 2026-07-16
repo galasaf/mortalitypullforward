@@ -15,28 +15,35 @@ browser. It is a JavaScript port of the **unified, calendar-anchored engine**
 (`mortality_model/excess.py`; verified to match Python to ~1e-14 across both
 drivers and all shape combinations). One conservation equation — excess deaths
 in 2020 = deaths harvested from later years — ties the pullforward to the
-cumulative excess, so a single **Pullforward source** toggle picks which side
-the user specifies. **Segments are universal**: user-defined age cutoffs and
-an optional sex split (cohorts matched on their age in 2020) carry how the
-pullforward grades away — shape (linear/step/exponential), grade-out horizon,
-decay rate, and an on/off switch — and are used by BOTH drivers; the 9 named
-scenario presets configure them (age-varying presets → 4 segments at cutoffs
-65/75/85) and stay selectable in both drivers:
+cumulative excess. There is **no mode switch**: both sides are always on
+screen — the per-segment **peak slider** and the 21-band **excess grid** —
+and **whichever was edited last is the input** (badged "input"); the other
+side displays live derived values (badged "solved"/"implied", gray italics).
+Taking over is value-preserving: grabbing the peak slider seeds every
+segment's peak from its currently solved value, and editing a band seeds the
+grid from the currently implied values, so switching direction never jumps
+the results. Derived values in the controls are shown at a representative
+age (band/segment midpoint); tiles and tables are always exact per cohort.
+**Segments are universal**: user-defined age cutoffs and an optional sex
+split (cohorts matched on their age in 2020) carry how the pullforward
+grades away — shape (linear/step/exponential), grade-out horizon, decay
+rate, and an on/off switch — regardless of which side is the input; the 9
+named scenario presets configure them (age-varying presets → 4 segments at
+cutoffs 65/75/85), and picking a preset makes the peak the input again:
 
-- **Assume pullforward** (default): the segment additionally carries the peak
-  % (share of 2021's deaths pulled into 2020; this slider is the only
-  direct-only control). The model reports the **implied cumulative excess** —
-  e.g. moderate_base (65% peak, 7-yr grade-out) implies ~300% of a year's
-  deaths for 65-year-olds, vs the ~50% actually observed.
-- **Solve from excess**: cumulative excess per 5-year age band (% of one
-  normal year's deaths, default 50%; a finer, data-like input than segments).
-  The model *solves* the peak under each cohort's segment shape (~10–13% for
-  50% excess / 7-yr grade-out; ~31% if the horizon is squeezed to 2 years),
-  with an infeasibility warning (capped at 100%) when the excess exceeds
-  every death available to harvest. A switched-off segment zeroes that
-  group's excess. The preset's peak is ignored here (it is solved).
+- **Peak as input** (default): the segment carries the peak % (share of
+  2021's deaths pulled into 2020). The model reports the **implied cumulative
+  excess** — e.g. moderate_base (65% peak, 7-yr grade-out) implies ~300% of a
+  year's deaths for 65-year-olds, vs the ~50% actually observed.
+- **Excess as input** (edit any band or "Set all"): cumulative excess per
+  5-year age band (% of one normal year's deaths; a finer, data-like input
+  than segments). The model *solves* the peak under each cohort's segment
+  shape (~10–13% for 50% excess / 7-yr grade-out; ~31% if the horizon is
+  squeezed to 2 years), with an infeasibility warning (capped at 100%) when
+  the excess exceeds every death available to harvest. A switched-off
+  segment zeroes that group's excess.
 
-Everything else is shared between the drivers:
+Everything else is independent of which side is the input:
 
 - **How the excess is timed** across years — all in 2020 (default), linear
   fade over N years, or an **empirical** Gaussian fade `x(j) ∝ 2^(−j²/4)`

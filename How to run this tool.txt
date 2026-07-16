@@ -38,17 +38,21 @@ change something, the results update instantly.
 
 ONE MODEL, TWO WAYS IN. The extra deaths COVID caused in
 2020 and the deaths that go missing from later years are
-two sides of the same coin — they must be equal. The
-"Pullforward source" switch at the very top picks which
-side YOU specify:
-  - "Assume pullforward" (this Part): you set how big the
-    pullforward was, and the tool reports the cumulative
-    excess deaths that implies.
-  - "Solve from excess" (Part 2B): you set how many extra
-    deaths actually happened, and the tool solves how big
-    the pullforward must have been.
-Everything else — the charts, the valuation year, the
-excess timing, the tables — is the same either way.
+two sides of the same coin — they must be equal. BOTH
+sides are always on screen, and whichever one you edited
+last is the input (it is marked "input"; the other side
+shows live derived numbers in gray italics):
+  - Drag the "Peak fraction" slider (this Part): the peak
+    is the input, and the excess grid shows the cumulative
+    excess deaths it implies.
+  - Edit the "Cumulative excess by age band" grid
+    (Part 2B): the excess is the input, and the peak
+    becomes solved.
+There is no mode switch — just edit the side you want to
+specify. Switching never jumps the results: the side you
+grab starts from its current derived values. Everything
+else — the charts, the valuation year, the excess timing,
+the tables — is the same either way.
 
 Step 1.  Pick a scenario from the "Scenario preset" dropdown.
          Start with "Moderate base (recommended)" — it is the
@@ -140,11 +144,14 @@ TIP: There is no Save button and you cannot break anything.
  PART 2B — THE OTHER WAY IN: SOLVE FROM EXCESS DEATHS
 ==========================================================
 
-The second button of the "Pullforward source" switch,
-"Solve from excess", runs the same model BACKWARDS from
-something observable: how many extra deaths COVID
-actually caused. Same charts, same tables — only the
-input side changes.
+Editing the "Cumulative excess by age band" grid runs the
+same model BACKWARDS from something observable: how many
+extra deaths COVID actually caused. The moment you type in
+any band (or click "Set all"), the excess becomes the
+input and the peak becomes solved — the peak slider turns
+gray/italic and shows the solved value. Same charts, same
+tables; only the input side changes. (To go back, just
+drag the peak slider or pick a preset.)
 
 The idea: you say how large each age group's TOTAL extra
 COVID deaths were, as a percentage of one normal year's
@@ -177,11 +184,12 @@ WHAT TO SET:
     applies here too:
       * "Pullforward inputs" — the Shape (Linear / Step /
         Exponential) and Grade-out horizon (or decay rate)
-        of each SEGMENT now govern how the SOLVED
-        pullforward grades away. Only the "Peak fraction"
-        slider disappears (the peak is what gets solved).
-        Squeezing the horizon forces a higher solved peak;
-        stretching it lowers the peak.
+        of each SEGMENT govern how the SOLVED pullforward
+        grades away. The "Peak fraction" slider turns
+        gray/italic and displays the solved value (the
+        peak is what gets solved). Squeezing the horizon
+        forces a higher solved peak; stretching it lowers
+        the peak.
       * Scenario presets still work — their segments and
         grade-out shapes apply; their peak is ignored.
       * "Segmentation" — age cutoffs / by-sex split apply

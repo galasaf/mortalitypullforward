@@ -123,8 +123,8 @@ def parse_excess(args) -> list[float]:
     else:
         vals = [args.excess_all] * N_BANDS
     for v in vals:
-        if not (0.0 <= v <= 300.0):
-            print(f"Excess percentages must be between 0 and 300 (got {v}).")
+        if not (0.0 <= v <= 1000.0):
+            print(f"Excess percentages must be between 0 and 1000 (got {v}).")
             sys.exit(1)
     return [v / 100.0 for v in vals]
 

@@ -133,6 +133,11 @@
   .bands input[type="number"] { width: 100%; padding: 4px 6px; }
   .warnline { color: #A33F10; font-weight: 600; }
 
+  /* Derived (non-input) side of the peak <-> excess equation */
+  input.derived { color: var(--ink-3); font-style: italic; background: #F4F6F9; }
+  input[type="range"].derived { accent-color: var(--ink-3); }
+  .seg-badge.derived-badge { background: #EDF0F4; color: var(--ink-3); }
+
   /* ---------- Output view bar ---------- */
   .outview { padding: 14px 18px; }
   .ov-row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
@@ -222,22 +227,11 @@
     <aside class="controls card" aria-label="Model inputs">
 
       <details class="ctl-group" open>
-        <summary>Pullforward source</summary>
-        <div class="grp-body">
-          <div class="seg" role="group" aria-label="Pullforward source">
-            <button type="button" id="drv-direct" aria-pressed="true">Assume pullforward</button>
-            <button type="button" id="drv-excess" aria-pressed="false">Solve from excess</button>
-          </div>
-          <p class="hint" id="drv-hint">The pullforward and the cumulative excess are two sides of one equation (excess deaths = harvested deaths) &mdash; pick which side you specify; the model derives the other.</p>
-        </div>
-      </details>
-
-      <details class="ctl-group" open>
         <summary>Scenario preset</summary>
         <div class="grp-body">
           <select id="preset" aria-label="Scenario preset"></select>
           <p class="hint" id="preset-desc"></p>
-          <p class="hint hidden" id="preset-driver-note">In solve-from-excess, the preset&rsquo;s peak is ignored (the peak is solved from the excess); its segments and grade-out shapes still apply.</p>
+          <p class="hint hidden" id="preset-driver-note">The excess is currently the input, so the preset&rsquo;s peak is ignored (the peak is solved); its segments and grade-out shapes still apply. Picking a preset makes the peak the input again.</p>
         </div>
       </details>
 
@@ -252,7 +246,7 @@
             <label for="seg-enabled" style="font-size:13px">COVID effect active in this segment</label>
             <input type="checkbox" id="seg-enabled" checked>
           </div>
-          <p class="hint">Untick to remove the COVID effect for this segment only (in solve-from-excess it zeroes that segment&rsquo;s excess) &mdash; useful for isolating one group at a time.</p>
+          <p class="hint">Untick to remove the COVID effect for this segment only (when the excess is the input it zeroes that segment&rsquo;s excess) &mdash; useful for isolating one group at a time.</p>
 
           <details class="sub" open>
             <summary>Shape</summary>
@@ -266,12 +260,12 @@
             </div>
           </details>
 
-          <details class="sub drv-direct" open>
-            <summary>Peak fraction <span class="readout" id="peak-out">65%</span></summary>
+          <details class="sub" open>
+            <summary>Peak fraction <span class="seg-badge" id="peak-status">input</span> <span class="readout" id="peak-out">65%</span></summary>
             <div class="sub-body">
               <input type="range" id="peak" min="0" max="1" step="0.01" value="0.65"
-                     aria-label="Peak fraction of year-1 deaths pulled into COVID">
-              <p class="hint">Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30&ndash;80%. 0% disables the effect for this segment. The cumulative excess this implies is shown in the tiles. (In solve-from-excess this slider disappears &mdash; the peak is solved.)</p>
+                     aria-label="Peak fraction: share of 2021 deaths pulled into 2020">
+              <p class="hint" id="peak-hint">Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30&ndash;80%.</p>
             </div>
           </details>
 
@@ -315,13 +309,13 @@
         </div>
       </details>
 
-      <details class="ctl-group drv-excess hidden" open>
-        <summary>Cumulative excess by age band</summary>
+      <details class="ctl-group" open>
+        <summary>Cumulative excess by age band <span class="seg-badge" id="excess-status">implied</span></summary>
         <div class="grp-body">
-          <p class="hint" style="margin:0">Total extra COVID deaths for each age group, as a % of ONE normal year&rsquo;s deaths at that group&rsquo;s 2020 age. Bands are matched on the age in 2020. How the solved pullforward grades away comes from each cohort&rsquo;s segment (the Shape and Grade-out inputs above).</p>
+          <p class="hint" style="margin:0" id="bands-hint">Total extra COVID deaths for each age group, as a % of ONE normal year&rsquo;s deaths at that group&rsquo;s 2020 age. Bands are matched on the age in 2020.</p>
           <div class="ctl-row" style="margin-top:8px">
             <label for="ex-fill-val" style="font-size:13px; white-space:nowrap">Set all to (%)</label>
-            <input type="number" id="ex-fill-val" min="0" max="300" step="5" value="50">
+            <input type="number" id="ex-fill-val" min="0" max="1000" step="5" value="50">
             <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
           </div>
           <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band"></div>
@@ -517,20 +511,28 @@
              Because mortality rises with age, a fixed number of borrowed deaths is a shrinking share of each
              later year&rsquo;s larger death count, which automatically mutes the future effect.</p>
           <div class="formula">excess deaths&nbsp; E &times; qx(age, 2020) &nbsp;=&nbsp; &Sigma;<sub>t&ge;1</sub> peak &times; w(t) &times; D<sub>b</sub>(t)</div>
-          <p>The <strong>Pullforward source</strong> toggle picks which side you specify. Either way,
-             <strong>segments</strong> (age band &times; optional sex, matched on the age in 2020) carry how the
-             pullforward grades away &mdash; shape, horizon, decay, and the on/off switch &mdash; and presets
-             configure them:</p>
+          <p>Both sides of the equation are always on screen &mdash; the <strong>peak slider</strong> and the
+             <strong>excess band grid</strong> &mdash; and <strong>whichever you edited last is the input</strong>
+             (badged &ldquo;input&rdquo;); the other side shows live derived values (badged &ldquo;solved&rdquo; /
+             &ldquo;implied&rdquo;, in gray italics). Either way, <strong>segments</strong> (age band &times;
+             optional sex, matched on the age in 2020) carry how the pullforward grades away &mdash; shape,
+             horizon, decay, and the on/off switch &mdash; and presets configure them:</p>
           <ul>
-            <li><strong>Assume pullforward</strong> &mdash; the segment also carries the peak (the share of
+            <li><strong>Peak as input</strong> &mdash; the segment also carries the peak (the share of
                 2021&rsquo;s deaths pulled into 2020). The model computes the cumulative excess this
-                <em>implies</em>.</li>
-            <li><strong>Solve from excess</strong> &mdash; you set each 5-year age band&rsquo;s cumulative
-                excess (% of one normal year&rsquo;s deaths; a finer, data-like input than segments) and the
-                model <em>solves</em> the peak under the cohort&rsquo;s segment shape. If the excess exceeds
-                every death available to harvest, the solve is infeasible: the pullforward is capped at 100%
-                and a warning is shown.</li>
+                <em>implies</em>, shown live in the band grid and the tiles.</li>
+            <li><strong>Excess as input</strong> (edit any band, or Set all) &mdash; each 5-year age
+                band&rsquo;s cumulative excess (% of one normal year&rsquo;s deaths; a finer, data-like input
+                than segments) drives the model, which <em>solves</em> the peak under the cohort&rsquo;s
+                segment shape. If the excess exceeds every death available to harvest, the solve is
+                infeasible: the pullforward is capped at 100% and a warning is shown.</li>
           </ul>
+          <p>Taking over is value-preserving: grabbing the peak slider first seeds every segment&rsquo;s peak
+             from its currently solved value, and editing a band first seeds the grid from the currently
+             implied values &mdash; so switching direction never jumps the results, and picking a scenario
+             preset always makes the peak the input again. Derived values in the controls are shown at a
+             representative age (band or segment midpoint) since the exact value varies by single age; the
+             tiles and the summary table are always exact per cohort.</p>
           <p><strong>How the pullforward grades away</strong>, w(t), has three shapes (normalized so every
              shape equals 1.0 in 2021 &mdash; &ldquo;peak&rdquo; always means the same thing):</p>
           <div class="formula">linear:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; w(t) = max(0, 1 &minus; (t&minus;1)/G)<br>step:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; w(t) = 1 &nbsp;for t &le; G, else 0<br>exponential:&nbsp; w(t) = e<sup>&minus;rate &times; (t&minus;1)</sup>&nbsp;&nbsp;(fat tail, no cutoff)</div>
@@ -1025,6 +1027,7 @@ const state = {
 function applyPreset(key) {
   const p = PRESETS[key];
   if (!p || key === "custom") return;
+  state.driver = "direct";  // presets define assumed peaks, so the peak becomes the input
   state.seg = { bySex: false, cutoffs: p.ageVarying ? PRESET_CUTOFFS.slice() : [] };
   state.segments = buildSegments(state.seg, null);
   state.segments.forEach((s, i) => {
@@ -1221,6 +1224,42 @@ function runFor(age, sex, scale) {
                          p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
 }
 
+/* Both sides of the conservation equation are always on screen: the peak
+   slider and the excess band grid. Whichever the user edited last is the
+   INPUT (state.driver); the other side displays live DERIVED values, and
+   editing it takes over, seeded from those values so nothing jumps.
+   Derived values are shown at a representative age (band midpoint / segment
+   midpoint) because the exact value varies by single age; the tiles and the
+   summary table are always exact per cohort. */
+const bandRepAge = (i) => Math.min(5 * i + 2, 110);
+const segRepAge = (s) => Math.max(0, Math.min(110, Math.floor((s.ageMin + Math.min(s.ageMax, 105)) / 2)));
+let lastImpliedBandsPct = null;  // what the grid showed while the peak was the input
+
+// Make the peak the input: seed every segment's peak from its currently
+// solved value (at the segment's representative age) so results carry over.
+function takeoverDirect(scale) {
+  if (state.driver === "direct") return;
+  const ex = state.ex;
+  const bands = ex.bandsPct.map((v) => v / 100);
+  state.segments.forEach((s) => {
+    const p = s.params;
+    if (!p.enabled || (p.shape !== "exponential" && p.gradeOutYears <= 0)) return;
+    const sx = s.sex === "all" ? state.focusSex : s.sex;
+    const r = runExcessCohort(segRepAge(s), sx, scale, bands, p.gradeOutYears, ex.valuationYear,
+                              p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
+    if (Number.isFinite(r.peak)) p.peakFraction = Math.min(1, Math.round(r.peak * 1000) / 1000);
+  });
+  state.driver = "direct";
+  markCustom();
+}
+
+// Make the excess the input: seed the bands from the currently implied values.
+function takeoverExcess() {
+  if (state.driver === "excess") return;
+  if (lastImpliedBandsPct) state.ex.bandsPct = lastImpliedBandsPct.slice();
+  state.driver = "excess";
+}
+
 function render() {
   const scale = activeScale();
   const ex = state.ex;
@@ -1383,9 +1422,54 @@ function render() {
     ? `Ages are ages in 2020; each cohort uses its segment's assumed pullforward, and the excess column shows what that implies. LE columns stand at ${V}. The highlighted row is your focus cohort.`
     : `Ages are ages in 2020; each cohort uses its own band's excess and its segment's grade-away shape. "Pulled from 2021" is the solved peak pullforward; ⚠ marks infeasible rows (capped at 100%). LE columns stand at ${V}. The highlighted row is your focus cohort.`;
 
+  // --- Bidirectional peak <-> excess display (input vs derived) ---
+  const bandInputs = $("ex-bands").querySelectorAll("input");
+  if (direct) {
+    lastImpliedBandsPct = [];
+    for (let i = 0; i < N_BANDS; i++) {
+      const rb = runFor(bandRepAge(i), state.focusSex, scale);
+      lastImpliedBandsPct.push(Math.round(rb.E * 1000) / 10);
+    }
+    bandInputs.forEach((inp, i) => {
+      inp.classList.add("derived");
+      if (document.activeElement !== inp) inp.value = lastImpliedBandsPct[i];
+    });
+    $("excess-status").textContent = "implied";
+    $("excess-status").classList.add("derived-badge");
+    $("bands-hint").textContent = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
+      + `Currently IMPLIED by the assumed peaks (shown at each band's midpoint age, ${state.focusSex}; the tiles and table are exact per cohort). `
+      + "Edit any band — or Set all — to make the excess the input instead; the peak then becomes solved.";
+    $("peak").classList.remove("derived");
+    $("peak-status").textContent = "input";
+    $("peak-status").classList.remove("derived-badge");
+  } else {
+    bandInputs.forEach((inp, i) => {
+      inp.classList.remove("derived");
+      if (document.activeElement !== inp) inp.value = state.ex.bandsPct[i];
+    });
+    $("excess-status").textContent = "input";
+    $("excess-status").classList.remove("derived-badge");
+    $("bands-hint").textContent = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
+      + "The excess is the INPUT: the pullforward peak is solved from it under each cohort's segment shape (Shape / Grade-out above).";
+    $("peak").classList.add("derived");
+    $("peak-status").textContent = "solved";
+    $("peak-status").classList.add("derived-badge");
+  }
+
   // --- Segment-control readouts and formula hints (the EDITING segment) ---
   const p = activeSegment().params;
-  $("peak-out").textContent = fmt.pct0(p.peakFraction);
+  if (direct) {
+    $("peak-out").textContent = fmt.pct0(p.peakFraction);
+    $("peak-hint").textContent = "Of the people who would have died in 2021, this share died in 2020 (during COVID) instead. Realistic range: 30–80%. 0% disables the segment. The cumulative excess it implies shows in the band grid below and in the tiles.";
+  } else {
+    const editSeg = activeSegment();
+    const editSx = editSeg.sex === "all" ? state.focusSex : editSeg.sex;
+    const rEdit = runFor(segRepAge(editSeg), editSx, scale);
+    const editPk = Math.min(1, Number.isFinite(rEdit.peak) ? rEdit.peak : 0);
+    $("peak").value = editPk;
+    $("peak-out").textContent = "≈ " + (rEdit.peak * 100).toFixed(1) + "% (solved)";
+    $("peak-hint").textContent = "Currently SOLVED from the excess (shown for this segment's midpoint age; exact per-cohort values in the table). Drag to make the peak the input again — every segment's peak is first seeded from its solved value, then your drag adjusts this segment.";
+  }
   $("grade-out-out").textContent = p.gradeOutYears === 0 ? "off (0)" : p.gradeOutYears + " yrs";
   $("decay-out").textContent = p.decayRate.toFixed(2) + "/yr";
   const pG = Math.max(1, p.gradeOutYears);
@@ -1518,18 +1602,6 @@ function syncControls() {
 function markCustom() { state.preset = "custom"; }
 function activeParams() { return activeSegment().params; }
 
-function setDriver(d) {
-  state.driver = d;
-  $("drv-direct").setAttribute("aria-pressed", d === "direct");
-  $("drv-excess").setAttribute("aria-pressed", d === "excess");
-  $("drv-hint").textContent = d === "direct"
-    ? "You assume the pullforward (peak % and how it grades away, per segment); the model reports the cumulative excess mortality it implies."
-    : "You assume each age band's cumulative excess mortality; the model solves the pullforward peak that repays it.";
-  document.querySelectorAll(".drv-direct").forEach((el) => el.classList.toggle("hidden", d !== "direct"));
-  document.querySelectorAll(".drv-excess").forEach((el) => el.classList.toggle("hidden", d !== "excess"));
-  syncControls();
-  render();
-}
 
 function parseIntList(text, lo, hi) {
   return [...new Set(
@@ -1558,7 +1630,11 @@ function init() {
   $("shape-linear").addEventListener("click", () => { activeParams().shape = "linear"; markCustom(); syncControls(); render(); });
   $("shape-step").addEventListener("click", () => { activeParams().shape = "step"; markCustom(); syncControls(); render(); });
   $("shape-exp").addEventListener("click", () => { activeParams().shape = "exponential"; markCustom(); syncControls(); render(); });
-  $("peak").addEventListener("input", (e) => { activeParams().peakFraction = +e.target.value; markCustom(); render(); });
+  $("peak").addEventListener("input", (e) => {
+    takeoverDirect(activeScale());   // no-op when the peak is already the input
+    activeParams().peakFraction = +e.target.value;
+    markCustom(); render();
+  });
   $("grade-out").addEventListener("input", (e) => { activeParams().gradeOutYears = +e.target.value; markCustom(); render(); });
   $("decay").addEventListener("input", (e) => { activeParams().decayRate = +e.target.value; markCustom(); render(); });
   $("seg-copy-all").addEventListener("click", () => {
@@ -1570,22 +1646,21 @@ function init() {
     setTimeout(() => { b.textContent = "Apply these inputs to all segments"; }, 1400);
   });
 
-  // Pullforward source (driver)
-  $("drv-direct").addEventListener("click", () => setDriver("direct"));
-  $("drv-excess").addEventListener("click", () => setDriver("excess"));
-
-  // Solve-from-excess inputs
+  // Excess band grid (editing it makes the excess the input)
   const bandsBox = $("ex-bands");
   for (let i = 0; i < N_BANDS; i++) {
     const lab = document.createElement("label");
     lab.textContent = bandLabel(i);
     const inp = document.createElement("input");
-    inp.type = "number"; inp.min = 0; inp.max = 300; inp.step = 5;
+    inp.type = "number"; inp.min = 0; inp.max = 1000; inp.step = 5;
     inp.value = state.ex.bandsPct[i];
     inp.setAttribute("aria-label", `Cumulative excess for ages ${bandLabel(i)}, percent`);
     inp.addEventListener("input", () => {
       const v = parseFloat(inp.value);
-      if (Number.isFinite(v)) { state.ex.bandsPct[i] = Math.max(0, Math.min(300, v)); render(); }
+      if (!Number.isFinite(v)) return;
+      takeoverExcess();   // seeds the other bands from their implied values
+      state.ex.bandsPct[i] = Math.max(0, Math.min(1000, v));
+      render();
     });
     lab.appendChild(inp);
     bandsBox.appendChild(lab);
@@ -1593,8 +1668,8 @@ function init() {
   $("ex-fill").addEventListener("click", () => {
     const v = parseFloat($("ex-fill-val").value);
     if (!Number.isFinite(v)) return;
-    state.ex.bandsPct = new Array(N_BANDS).fill(Math.max(0, Math.min(300, v)));
-    bandsBox.querySelectorAll("input").forEach((inp, i) => { inp.value = state.ex.bandsPct[i]; });
+    state.driver = "excess";   // all bands overwritten; no seeding needed
+    state.ex.bandsPct = new Array(N_BANDS).fill(Math.max(0, Math.min(1000, v)));
     render();
   });
   $("ex-val").addEventListener("change", (e) => {
