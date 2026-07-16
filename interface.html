@@ -128,9 +128,11 @@
   }
 
   /* ---------- Excess-calibration band grid ---------- */
-  .bands { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
-  .bands label { font-size: 11px; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
-  .bands input[type="number"] { width: 100%; padding: 4px 6px; }
+  .bands { display: grid; grid-template-columns: minmax(46px, auto) 1fr 1fr; gap: 4px 6px; margin-top: 8px; align-items: center; }
+  .bands .bands-h { font-size: 10px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); padding-bottom: 2px; }
+  .bands .band-age { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bands input[type="number"] { width: 100%; padding: 3px 6px; font-size: 12px; }
+  .bands .seg-break { border-top: 2px solid var(--pullfwd); padding-top: 4px; margin-top: 2px; }
   .warnline { color: #A33F10; font-weight: 600; }
 
   /* Derived (non-input) side of the peak <-> excess equation */
@@ -340,7 +342,13 @@
             <input type="number" id="ex-fill-val" min="0" max="1000" step="5" value="50">
             <button type="button" class="copy-btn" id="ex-fill" style="margin-top:0">Apply</button>
           </div>
-          <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band"></div>
+          <div class="ctl-row" style="margin-top:6px">
+            <label for="ex-segfill-val" style="font-size:13px; white-space:nowrap">Fill segment (%)
+              <span class="info" tabindex="0" id="ex-segfill-hint" data-tip="Fills only the bands covered by the segment currently selected under 'Editing segment' (its sex column(s) only, for sex-split segments). The orange lines in the grid mark the segment boundaries.">i</span></label>
+            <input type="number" id="ex-segfill-val" min="0" max="1000" step="5" value="50">
+            <button type="button" class="copy-btn" id="ex-segfill" style="margin-top:0">Apply</button>
+          </div>
+          <div class="bands" id="ex-bands" aria-label="Cumulative excess by 5-year age band and sex"></div>
         </div>
       </details>
 
@@ -1035,7 +1043,10 @@ const state = {
   // Shared excess/timing inputs (how the pullforward grades away lives on the
   // SEGMENTS and is used by both drivers)
   ex: {
-    bandsPct: new Array(N_BANDS).fill(50),  // cumulative excess per 5-yr band, % of one year's deaths
+    bandsPct: {                             // cumulative excess per 5-yr band AND sex, % of one year's deaths
+      male: new Array(N_BANDS).fill(50),
+      female: new Array(N_BANDS).fill(50),
+    },
     valuationYear: 2025,
     excShape: "instant", spreadYears: 3,    // how the excess itself is timed across years
   },
@@ -1268,7 +1279,7 @@ function runFor(age, sex, scale) {
     return runExcessCohort(age, sex, scale, null, p.gradeOutYears, ex.valuationYear,
                            p.shape, p.decayRate, ex.excShape, ex.spreadYears, peak);
   }
-  const bands = ex.bandsPct.map((v) => v / 100);
+  const bands = ex.bandsPct[sex].map((v) => v / 100);
   return runExcessCohort(age, sex, scale, bands, p.gradeOutYears, ex.valuationYear,
                          p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
 }
@@ -1282,18 +1293,18 @@ function runFor(age, sex, scale) {
    summary table are always exact per cohort. */
 const bandRepAge = (i) => Math.min(5 * i + 2, 110);
 const segRepAge = (s) => Math.max(0, Math.min(110, Math.floor((s.ageMin + Math.min(s.ageMax, 105)) / 2)));
-let lastImpliedBandsPct = null;  // what the grid showed while the peak was the input
+let lastImpliedBandsPct = null;  // {male:[], female:[]} shown while the peak was the input
 
 // Make the peak the input: seed every segment's peak from its currently
 // solved value (at the segment's representative age) so results carry over.
 function takeoverDirect(scale) {
   if (state.driver === "direct") return;
   const ex = state.ex;
-  const bands = ex.bandsPct.map((v) => v / 100);
   state.segments.forEach((s) => {
     const p = s.params;
     if (!p.enabled || (p.shape !== "exponential" && p.gradeOutYears <= 0)) return;
     const sx = s.sex === "all" ? state.focusSex : s.sex;
+    const bands = ex.bandsPct[sx].map((v) => v / 100);
     const r = runExcessCohort(segRepAge(s), sx, scale, bands, p.gradeOutYears, ex.valuationYear,
                               p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
     if (Number.isFinite(r.peak)) p.peakFraction = Math.min(1, Math.round(r.peak * 1000) / 1000);
@@ -1305,7 +1316,12 @@ function takeoverDirect(scale) {
 // Make the excess the input: seed the bands from the currently implied values.
 function takeoverExcess() {
   if (state.driver === "excess") return;
-  if (lastImpliedBandsPct) state.ex.bandsPct = lastImpliedBandsPct.slice();
+  if (lastImpliedBandsPct) {
+    state.ex.bandsPct = {
+      male: lastImpliedBandsPct.male.slice(),
+      female: lastImpliedBandsPct.female.slice(),
+    };
+  }
   state.driver = "excess";
 }
 
@@ -1483,32 +1499,36 @@ function render() {
   // --- Bidirectional peak <-> excess display (input vs derived) ---
   const bandInputs = $("ex-bands").querySelectorAll("input");
   if (direct) {
-    lastImpliedBandsPct = [];
-    for (let i = 0; i < N_BANDS; i++) {
-      const rb = runFor(bandRepAge(i), state.focusSex, scale);
-      lastImpliedBandsPct.push(Math.round(rb.E * 1000) / 10);
+    lastImpliedBandsPct = { male: [], female: [] };
+    for (const sx of ["male", "female"]) {
+      for (let i = 0; i < N_BANDS; i++) {
+        const rb = runFor(bandRepAge(i), sx, scale);
+        lastImpliedBandsPct[sx].push(Math.round(rb.E * 1000) / 10);
+      }
     }
-    bandInputs.forEach((inp, i) => {
+    bandInputs.forEach((inp) => {
       inp.classList.add("derived");
-      if (document.activeElement !== inp) inp.value = lastImpliedBandsPct[i];
+      if (document.activeElement !== inp) inp.value = lastImpliedBandsPct[inp.dataset.sex][+inp.dataset.band];
     });
     $("excess-status").textContent = "implied";
     $("excess-status").classList.add("derived-badge");
-    $("bands-hint").dataset.tip = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
-      + `Currently IMPLIED by the assumed peaks (shown at each band's midpoint age, ${state.focusSex}; the tiles and table are exact per cohort). `
-      + "Edit any band — or Set all — to make the excess the input instead; the peak then becomes solved.";
+    $("bands-hint").dataset.tip = "Total extra COVID deaths for each age group and sex, as a % of ONE normal year's deaths at that group's 2020 age. "
+      + "Currently IMPLIED by the assumed peaks (shown at each band's midpoint age; the tiles and table are exact per cohort). "
+      + "Edit any cell — or use the fill buttons — to make the excess the input instead; the peak then becomes solved. "
+      + "Orange lines mark the segment boundaries defined above.";
     $("peak").classList.remove("derived");
     $("peak-status").textContent = "input";
     $("peak-status").classList.remove("derived-badge");
   } else {
-    bandInputs.forEach((inp, i) => {
+    bandInputs.forEach((inp) => {
       inp.classList.remove("derived");
-      if (document.activeElement !== inp) inp.value = state.ex.bandsPct[i];
+      if (document.activeElement !== inp) inp.value = state.ex.bandsPct[inp.dataset.sex][+inp.dataset.band];
     });
     $("excess-status").textContent = "input";
     $("excess-status").classList.remove("derived-badge");
-    $("bands-hint").dataset.tip = "Total extra COVID deaths for each age group, as a % of ONE normal year's deaths at that group's 2020 age. "
-      + "The excess is the INPUT: the pullforward peak is solved from it under each cohort's segment shape (Shape / Grade-out above).";
+    $("bands-hint").dataset.tip = "Total extra COVID deaths for each age group and sex, as a % of ONE normal year's deaths at that group's 2020 age. "
+      + "The excess is the INPUT: the pullforward peak is solved from it under each cohort's segment shape (Shape / Grade-out above). "
+      + "Orange lines mark the segment boundaries defined above.";
     $("peak").classList.add("derived");
     $("peak-status").textContent = "solved";
     $("peak-status").classList.add("derived-badge");
@@ -1561,9 +1581,12 @@ function render() {
   if (direct) {
     parts.push(`--peak ${pf.enabled ? pf.peakFraction : 0}`);
   } else {
-    const uniform = ex.bandsPct.every((v) => v === ex.bandsPct[0]);
-    if (uniform) parts.push(`--excess-all ${pf.enabled ? ex.bandsPct[0] : 0}`);
-    else parts.push(`--excess "${ex.bandsPct.join(",")}"`);
+    const bm = ex.bandsPct.male, bf = ex.bandsPct.female;
+    const sexesSame = bm.every((v, i) => v === bf[i]);
+    const uniform = sexesSame && bm.every((v) => v === bm[0]);
+    if (uniform) parts.push(`--excess-all ${pf.enabled ? bm[0] : 0}`);
+    else if (sexesSame) parts.push(`--excess "${bm.join(",")}"`);
+    else parts.push(`--excess-male "${bm.join(",")}"`, `--excess-female "${bf.join(",")}"`);
   }
   if (pf.shape !== "linear") parts.push(`--pullforward-shape ${pf.shape}`);
   if (pf.shape === "exponential") parts.push(`--decay-rate ${pf.decayRate}`);
@@ -1590,6 +1613,47 @@ function rebuildSegOptions() {
   });
   if (state.activeSegIdx >= state.segments.length) state.activeSegIdx = 0;
   sel.value = state.activeSegIdx;
+}
+
+// Rebuild the excess grid: rows = 5-year bands, columns = Male / Female,
+// with orange separators where the segment boundaries fall.
+function buildBandGrid() {
+  const box = $("ex-bands");
+  box.innerHTML = "";
+  const breaks = new Set();
+  state.segments.forEach((sg) => {
+    if (sg.ageMin > 0 && sg.ageMin <= 105) breaks.add(Math.floor(sg.ageMin / 5));
+  });
+  const mk = (cls, text) => {
+    const d = document.createElement("div");
+    d.className = cls;
+    if (text != null) d.textContent = text;
+    box.appendChild(d);
+    return d;
+  };
+  mk("bands-h", "Age");
+  mk("bands-h", "Male");
+  mk("bands-h", "Female");
+  for (let i = 0; i < N_BANDS; i++) {
+    const brk = breaks.has(i) ? " seg-break" : "";
+    mk("band-age" + brk, bandLabel(i));
+    for (const sx of ["male", "female"]) {
+      const cell = mk("band-cell" + brk, null);
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.min = 0; inp.max = 1000; inp.step = 5;
+      inp.dataset.sex = sx; inp.dataset.band = i;
+      inp.value = state.ex.bandsPct[sx][i];
+      inp.setAttribute("aria-label", `Cumulative excess for ${sx}s aged ${bandLabel(i)}, percent`);
+      inp.addEventListener("input", () => {
+        const v = parseFloat(inp.value);
+        if (!Number.isFinite(v)) return;
+        takeoverExcess();   // untouched cells keep their current (implied) values
+        state.ex.bandsPct[sx][i] = Math.max(0, Math.min(1000, v));
+        render();
+      });
+      cell.appendChild(inp);
+    }
+  }
 }
 
 function syncControls() {
@@ -1679,6 +1743,7 @@ function init() {
     state.preset = sel.value;
     applyPreset(sel.value);
     $("segdef-cutoffs").value = state.seg.cutoffs.join(", ");
+    buildBandGrid();           // segment boundaries in the grid may have moved
     syncControls(); render();  // presets apply in both drivers (peak used in direct only)
   });
 
@@ -1705,29 +1770,27 @@ function init() {
   });
 
   // Excess band grid (editing it makes the excess the input)
-  const bandsBox = $("ex-bands");
-  for (let i = 0; i < N_BANDS; i++) {
-    const lab = document.createElement("label");
-    lab.textContent = bandLabel(i);
-    const inp = document.createElement("input");
-    inp.type = "number"; inp.min = 0; inp.max = 1000; inp.step = 5;
-    inp.value = state.ex.bandsPct[i];
-    inp.setAttribute("aria-label", `Cumulative excess for ages ${bandLabel(i)}, percent`);
-    inp.addEventListener("input", () => {
-      const v = parseFloat(inp.value);
-      if (!Number.isFinite(v)) return;
-      takeoverExcess();   // seeds the other bands from their implied values
-      state.ex.bandsPct[i] = Math.max(0, Math.min(1000, v));
-      render();
-    });
-    lab.appendChild(inp);
-    bandsBox.appendChild(lab);
-  }
+  buildBandGrid();
   $("ex-fill").addEventListener("click", () => {
     const v = parseFloat($("ex-fill-val").value);
     if (!Number.isFinite(v)) return;
-    state.driver = "excess";   // all bands overwritten; no seeding needed
-    state.ex.bandsPct = new Array(N_BANDS).fill(Math.max(0, Math.min(1000, v)));
+    const val = Math.max(0, Math.min(1000, v));
+    state.driver = "excess";   // everything overwritten; no seeding needed
+    state.ex.bandsPct = { male: new Array(N_BANDS).fill(val), female: new Array(N_BANDS).fill(val) };
+    render();
+  });
+  $("ex-segfill").addEventListener("click", () => {
+    const v = parseFloat($("ex-segfill-val").value);
+    if (!Number.isFinite(v)) return;
+    const val = Math.max(0, Math.min(1000, v));
+    takeoverExcess();   // untouched cells keep their current (implied) values
+    const seg = activeSegment();
+    const sexes = seg.sex === "all" ? ["male", "female"] : [seg.sex];
+    for (let i = 0; i < N_BANDS; i++) {
+      if (bandRepAge(i) >= seg.ageMin && bandRepAge(i) < seg.ageMax) {
+        for (const sx of sexes) state.ex.bandsPct[sx][i] = val;
+      }
+    }
     render();
   });
   $("ex-val").addEventListener("change", (e) => {
@@ -1752,6 +1815,7 @@ function init() {
     $("segdef-cutoffs").value = cutoffs.join(", ");
     state.segments = buildSegments(state.seg, state.segments);
     state.activeSegIdx = 0;
+    buildBandGrid();           // segment boundaries in the grid may have moved
     markCustom(); syncControls(); render();
   });
 

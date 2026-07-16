@@ -35,13 +35,17 @@ cutoffs 65/75/85), and picking a preset makes the peak the input again:
   2021's deaths pulled into 2020). The model reports the **implied cumulative
   excess** — e.g. moderate_base (65% peak, 7-yr grade-out) implies ~300% of a
   year's deaths for 65-year-olds, vs the ~50% actually observed.
-- **Excess as input** (edit any band or "Set all"): cumulative excess per
-  5-year age band (% of one normal year's deaths; a finer, data-like input
-  than segments). The model *solves* the peak under each cohort's segment
-  shape (~10–13% for 50% excess / 7-yr grade-out; ~31% if the horizon is
-  squeezed to 2 years), with an infeasibility warning (capped at 100%) when
-  the excess exceeds every death available to harvest. A switched-off
-  segment zeroes that group's excess.
+- **Excess as input** (edit any cell or use the fill buttons): cumulative
+  excess per 5-year age band **and sex** (% of one normal year's deaths; a
+  finer, data-like input than segments), laid out as a grid — rows = the 21
+  bands, columns = Male / Female — with orange separators where the segment
+  boundaries fall and a **fill-by-segment** shortcut (fills only the bands
+  covered by the currently-editing segment, in its sex column(s)). The model
+  *solves* the peak under each cohort's segment shape (~10–13% for 50%
+  excess / 7-yr grade-out; ~31% if the horizon is squeezed to 2 years), with
+  an infeasibility warning (capped at 100%) when the excess exceeds every
+  death available to harvest. A switched-off segment zeroes that group's
+  excess. CLI: `--excess-male` / `--excess-female` when the sexes differ.
 
 Everything else is independent of which side is the input:
 

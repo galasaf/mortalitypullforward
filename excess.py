@@ -57,6 +57,9 @@ PER-BAND EXCESS (21 five-year bands: 0-4, 5-9, ..., 95-99, 100+)
 ----------------------------------------------------------------------------
   python excess.py --excess "30,30,30,30,30,35,35,40,40,45,45,50,50,55,55,60,60,60,55,50,45"
 
+  # sex-specific bands (either flag overrides --excess/--excess-all for that sex):
+  python excess.py --excess-male "60,...,55" --excess-female "45,...,40"
+
 ----------------------------------------------------------------------------
 MORTALITY IMPROVEMENT (same flags as sensitivity.py; default flat 1%/yr)
 ----------------------------------------------------------------------------
@@ -110,23 +113,36 @@ from mortality_model.excess import (
 DEFAULT_AGES = [40, 50, 55, 60, 65, 70, 75, 80]  # ages IN 2020
 
 
-def parse_excess(args) -> list[float]:
-    """Build the 21-band excess vector (fractions) from --excess / --excess-all."""
-    if args.excess is not None:
-        parts = [p for p in args.excess.replace(" ", "").split(",") if p != ""]
-        if len(parts) != N_BANDS:
-            bands = ", ".join(band_label(i) for i in range(N_BANDS))
-            print(f"--excess needs exactly {N_BANDS} comma-separated percentages, "
-                  f"one per band:\n  {bands}\nGot {len(parts)} values.")
-            sys.exit(1)
-        vals = [float(p) for p in parts]
-    else:
-        vals = [args.excess_all] * N_BANDS
+def _parse_band_list(text: str, flag: str) -> list[float]:
+    parts = [p for p in text.replace(" ", "").split(",") if p != ""]
+    if len(parts) != N_BANDS:
+        bands = ", ".join(band_label(i) for i in range(N_BANDS))
+        print(f"{flag} needs exactly {N_BANDS} comma-separated percentages, "
+              f"one per band:\n  {bands}\nGot {len(parts)} values.")
+        sys.exit(1)
+    vals = [float(p) for p in parts]
     for v in vals:
         if not (0.0 <= v <= 1000.0):
             print(f"Excess percentages must be between 0 and 1000 (got {v}).")
             sys.exit(1)
-    return [v / 100.0 for v in vals]
+    return vals
+
+
+def parse_excess(args) -> dict:
+    """Per-sex 21-band excess vectors (fractions): {'male': [...], 'female': [...]}."""
+    if args.excess is not None:
+        base = _parse_band_list(args.excess, "--excess")
+    else:
+        if not (0.0 <= args.excess_all <= 1000.0):
+            print(f"--excess-all must be between 0 and 1000 (got {args.excess_all}).")
+            sys.exit(1)
+        base = [args.excess_all] * N_BANDS
+    out = {"male": base, "female": list(base)}
+    if args.excess_male is not None:
+        out["male"] = _parse_band_list(args.excess_male, "--excess-male")
+    if args.excess_female is not None:
+        out["female"] = _parse_band_list(args.excess_female, "--excess-female")
+    return {sx: [v / 100.0 for v in vals] for sx, vals in out.items()}
 
 
 def build_scale(args):
@@ -154,10 +170,13 @@ def describe(args, excess_bands) -> str:
         driver_line = (f"  Pullforward peak  : {args.peak * 100:.0f}% of 2021's deaths "
                        "(ASSUMED; the cumulative excess is implied)")
     else:
-        uniform = len(set(excess_bands)) == 1
+        same = excess_bands["male"] == excess_bands["female"]
+        uniform = same and len(set(excess_bands["male"])) == 1
         driver_line = ("  Cumulative excess : "
-                       + (f"{excess_bands[0] * 100:.0f}% of one year's deaths, all ages"
-                          if uniform else "per-band (see --excess)")
+                       + (f"{excess_bands['male'][0] * 100:.0f}% of one year's deaths, all ages/sexes"
+                          if uniform
+                          else ("per-band (see --excess)" if same
+                                else "per-band and per-sex (see --excess-male / --excess-female)"))
                        + " (ASSUMED; the pullforward peak is solved)")
     lines = [
         driver_line,
@@ -186,6 +205,12 @@ def main():
     p.add_argument("--excess",
                    help=f"{N_BANDS} comma-separated percentages, one per 5-year band "
                         "(0-4, 5-9, ..., 95-99, 100+)")
+    p.add_argument("--excess-male", dest="excess_male",
+                   help=f"{N_BANDS} comma-separated percentages for MALES only "
+                        "(overrides --excess/--excess-all for that sex)")
+    p.add_argument("--excess-female", dest="excess_female",
+                   help=f"{N_BANDS} comma-separated percentages for FEMALES only "
+                        "(overrides --excess/--excess-all for that sex)")
     p.add_argument("--peak", type=float,
                    help="drive the model from the pullforward side instead: the ASSUMED "
                         "share of 2021's deaths pulled into 2020 (0..1). Overrides "
@@ -257,7 +282,7 @@ def main():
     for sex in sexes:
         for age in ages:
             results.append(run_excess_cohort(
-                age, sex, table, scale, excess_bands, args.grade_out,
+                age, sex, table, scale, excess_bands[sex], args.grade_out,
                 args.valuation_year, args.pullforward_shape, args.decay_rate,
                 args.excess_shape, args.excess_spread, 119, args.peak,
             ))
@@ -314,7 +339,7 @@ def main():
     trajectories = []
     for sex in sexes:
         traj = mortality_trajectory(
-            traj_age, sex, table, scale, excess_bands, args.grade_out,
+            traj_age, sex, table, scale, excess_bands[sex], args.grade_out,
             args.valuation_year, args.pullforward_shape, args.decay_rate,
             args.excess_shape, args.excess_spread, peak=args.peak,
         )
