@@ -50,11 +50,15 @@ cutoffs 65/75/85), and picking a preset makes the peak the input again:
 Everything else is independent of which side is the input:
 
 - **How the excess is timed** across years — all in 2020 (default), linear
-  fade over N years, or an **empirical** Gaussian fade `x(j) ∝ 2^(−j²/4)`
-  calibrated to the actual COVID pattern (relative to 2020: 84% in 2021,
-  exactly half in 2022, 21% in 2023, 6% in 2024, zero from 2025). Timing only
-  moves *when* the deaths happen; totals and the peak are untouched. Every
-  sidebar hint discloses the active shape's formula with live numeric examples
+  fade over N years, an **exponential** fade `x(j) ∝ e^(−r·j)` with a
+  user-set decay rate (default 0.5/yr, halving every ~1.4 yrs; the tail is
+  cut below 0.1% of 2020's level, at most 30 years, and renormalized so the
+  window stays finite), or a **Gaussian** fade `x(j) ∝ 2^(−j²/4)` — the
+  shape that most closely matches the excess actually observed (relative to
+  2020: 84% in 2021, exactly half in 2022, 21% in 2023, 6% in 2024, zero
+  from 2025; formerly named "empirical"). Timing only moves *when* the
+  deaths happen; totals and the peak are untouched. Every sidebar hint
+  discloses the active shape's formula with live numeric examples
 - A **valuation year** (default 2025, at the very top of the sidebar): LE
   gain, equivalent multiplier, and remaining multiples are for people alive
   *then*
@@ -126,7 +130,10 @@ python excess.py --pullforward-shape exponential --decay-rate 0.3   # no hard cu
 
 # How the excess itself is timed across years (independent of the above):
 python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
-python excess.py --excess-shape empirical                  # matches actual 2020-2024 pattern
+python excess.py --excess-shape exponential --excess-decay 0.5   # x(j) ∝ e^(−r·j)
+python excess.py --excess-shape gaussian                   # matches actual 2020-2024
+                                                           #   pattern ("empirical" is
+                                                           #   accepted as an alias)
 
 python excess.py --age 65 --sex male --save   # CSVs to output/excess_calibration/
 ```
@@ -447,11 +454,16 @@ in the CLI) and computes the implied excess
   `t≥1`, no cutoff. Chosen independently of the direct mode's own shape.
 - **Excess timing `x(t)`** (0-indexed, `t=0` = 2020), independent of the
   harvest shape: `instant` puts all of `X` in 2020; `linear` spreads it
-  triangularly (`x(j) ∝ N−j`) to zero over N years; `empirical` is a
-  **Gaussian fade `w(j) = 2^(−j²/4)`** for `j = 0..4`, zero from 2025 —
-  levels 100% / 84% / 50% / 21% / 6% of 2020 (halves exactly by 2022;
+  triangularly (`x(j) ∝ N−j`) to zero over N years; `exponential` fades it
+  as `x(j) ∝ e^(−r·j)` (`--excess-decay`, default 0.5/yr — the tail is cut
+  once the level drops below 0.1% of 2020's, at most 30 years, and the
+  weights renormalized, so the window stays finite and conservation exact);
+  `gaussian` (formerly named "empirical" — the CLI still accepts that as an
+  alias) is a **Gaussian fade `w(j) = 2^(−j²/4)`** for `j = 0..4`, zero from
+  2025 — levels 100% / 84% / 50% / 21% / 6% of 2020 (halves exactly by 2022;
   the untruncated 2025 value, 1.3%, is dropped), i.e. shares of the total
   excess 38% / 32% / 19% / 8% / 2% — normalized to sum to 1, scaled by `X`.
+  It is the shape that most closely matches the excess actually observed.
 - **Solve**: harvested deaths must repay the excess, with the deficit coming
   from the cohort *as it ages* (this mutes later years since qx rises):
   `X = Σ_{t≥1} peak × w(t) × D_b(t)` where `D_b(t)` are baseline

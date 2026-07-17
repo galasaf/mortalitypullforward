@@ -21,7 +21,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--ground);
+    background: linear-gradient(180deg, #E9EEF4 0%, var(--ground) 460px);
     color: var(--ink);
     font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
     font-size: 14px;
@@ -30,8 +30,21 @@
   .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
 
   header.page { margin-bottom: 20px; }
-  header.page h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
-  header.page p { margin: 0; color: var(--ink-2); max-width: 68ch; }
+  .masthead {
+    background:
+      radial-gradient(120% 180% at 100% 0%, rgba(12, 138, 109, 0.55) 0%, rgba(12, 138, 109, 0) 55%),
+      linear-gradient(120deg, #17324E 0%, #14575C 60%, #0C8A6D 100%);
+    border-radius: 12px; padding: 22px 26px;
+    box-shadow: 0 12px 30px rgba(18, 48, 66, 0.18);
+  }
+  .masthead h1 { font-size: 23px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; color: #fff; }
+  .masthead p { margin: 0; color: rgba(255, 255, 255, 0.86); max-width: 82ch; font-size: 13.5px; }
+  .mast-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .mast-chips span {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: #fff;
+    background: rgba(255, 255, 255, 0.13); border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px; padding: 3px 11px;
+  }
 
   .app { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 920px) { .app { grid-template-columns: 1fr; } }
@@ -39,8 +52,15 @@
   .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 18px;
+    box-shadow: 0 1px 2px rgba(20, 32, 45, 0.04), 0 6px 18px rgba(20, 32, 45, 0.05);
+  }
+  .chart-card { position: relative; overflow: hidden; }
+  .chart-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--baseline), var(--survivor) 55%, var(--pullfwd));
+    opacity: 0.7;
   }
 
   /* ---------- Controls: independently scrollable pane ---------- */
@@ -106,7 +126,10 @@
     background: var(--card); color: var(--ink-2); cursor: pointer;
   }
   .seg button + button { border-left: 1px solid var(--line); }
-  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; font-weight: 600; }
+  .seg button:hover { background: #F3F6F9; color: var(--ink); }
+  .seg button[aria-pressed="true"], .seg button[aria-pressed="true"]:hover {
+    background: linear-gradient(135deg, #24405E, var(--ink)); color: #fff; font-weight: 600;
+  }
 
   .cli {
     background: #F1F3F6; border: 1px solid var(--line); border-radius: 6px;
@@ -119,7 +142,7 @@
     padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px;
     background: var(--card); color: var(--ink); cursor: pointer;
   }
-  .copy-btn:hover { border-color: var(--ink-3); }
+  .copy-btn:hover { border-color: var(--ink-3); background: #F3F6F9; }
 
   .seg-badge {
     display: inline-block; font-size: 11px; font-weight: 650;
@@ -173,11 +196,19 @@
 
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   @media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
-  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .tile {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    border-top: 3px solid var(--line); padding: 13px 16px 14px;
+    box-shadow: 0 1px 2px rgba(20, 32, 45, 0.04), 0 6px 18px rgba(20, 32, 45, 0.05);
+  }
+  .tile:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(20, 32, 45, 0.05), 0 10px 24px rgba(20, 32, 45, 0.09); }
   .tile .label { font-size: 11px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-2); }
-  .tile .value { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -0.01em; }
+  .tile .value { font-size: 27px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; letter-spacing: -0.01em; }
   .tile .sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
-  .tile.hero { background: var(--survivor-soft); border-color: #BFDFD5; }
+  .tile.hero {
+    background: linear-gradient(160deg, #EAF7F1, #DDF0E7);
+    border-color: #BFDFD5; border-top-color: var(--survivor);
+  }
   .tile.hero .value { color: var(--survivor); }
 
   .chart-card h2 { font-size: 15px; font-weight: 650; margin: 0; }
@@ -200,7 +231,8 @@
   table.summary th { font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
   table.summary th:first-child, table.summary td:first-child { text-align: left; }
   table.summary td.delta { color: var(--survivor); font-weight: 650; }
-  table.summary tr.focus-row td { background: var(--survivor-soft); }
+  table.summary tbody tr:hover td { background: #F2F6FA; }
+  table.summary tr.focus-row td, table.summary tbody tr.focus-row:hover td { background: var(--survivor-soft); }
   table.summary tr.sex-break td { border-top: 2px solid var(--line); }
   .table-scroll { overflow-x: auto; }
 
@@ -226,20 +258,31 @@
   .hidden { display: none !important; }
   @media (prefers-reduced-motion: no-preference) {
     .seg button, .copy-btn { transition: background 0.12s ease, color 0.12s ease; }
+    .tile { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    details.ctl-group > summary { transition: color 0.12s ease; }
   }
+  details.ctl-group > summary:hover { color: var(--ink); }
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <header class="page">
-    <h1>Mortality Pullforward Explorer</h1>
-    <p>COVID disproportionately killed people who were already close to dying: deaths were
-       &ldquo;pulled forward&rdquo; from the years just ahead. The pullforward and the cumulative excess
-       mortality it caused are two sides of one equation, so you can drive this tool from either side
-       &mdash; assume the pullforward and see the excess it implies, or assume each age group&rsquo;s
-       observed excess and let the model solve the pullforward. Either way it shows the bent mortality
-       trajectory and what survivors gain in life expectancy, standing at any valuation year.</p>
+    <div class="masthead">
+      <h1>Mortality Pullforward Explorer</h1>
+      <p>COVID disproportionately killed people who were already close to dying: deaths were
+         &ldquo;pulled forward&rdquo; from the years just ahead. The pullforward and the cumulative excess
+         mortality it caused are two sides of one equation, so you can drive this tool from either side
+         &mdash; assume the pullforward and see the excess it implies, or assume each age group&rsquo;s
+         observed excess and let the model solve the pullforward. Either way it shows the bent mortality
+         trajectory and what survivors gain in life expectancy, standing at any valuation year.</p>
+      <div class="mast-chips" aria-hidden="true">
+        <span>One conservation equation</span>
+        <span>Drive it from either side</span>
+        <span>SSA 2019 table + improvement</span>
+        <span>Nothing leaves your browser</span>
+      </div>
+    </div>
   </header>
 
   <div class="app">
@@ -357,15 +400,23 @@
             <summary>Excess timing across years <span class="info" tabindex="0" id="ex-exc-hint">i</span></summary>
             <div class="sub-body">
               <div class="seg" role="group" aria-label="Excess timing shape">
-                <button type="button" id="ex-exc-instant" aria-pressed="true">All in 2020</button>
-                <button type="button" id="ex-exc-linear" aria-pressed="false">Linear fade</button>
-                <button type="button" id="ex-exc-empirical" aria-pressed="false">Empirical</button>
+                <button type="button" id="ex-exc-instant" aria-pressed="true">All 2020</button>
+                <button type="button" id="ex-exc-linear" aria-pressed="false">Linear</button>
+                <button type="button" id="ex-exc-exponential" aria-pressed="false">Expon.</button>
+                <button type="button" id="ex-exc-gaussian" aria-pressed="false">Gaussian</button>
               </div>
               <div class="hidden" id="ex-spread-row">
                 <div class="ctl-row" style="margin-top:8px">
                   <label for="ex-spread-years" style="font-size:13px">Over how many years</label>
                   <input type="number" id="ex-spread-years" min="2" max="10" step="1" value="3">
                 </div>
+              </div>
+              <div class="hidden" id="ex-excdecay-row">
+                <div class="ctl-row" style="margin-top:8px">
+                  <label for="ex-excdecay" style="font-size:13px">Decay rate (/yr)</label>
+                  <input type="number" id="ex-excdecay" min="0.05" max="3" step="0.05" value="0.5">
+                </div>
+                <p class="hint" id="ex-excdecay-note"></p>
               </div>
             </div>
           </details>
@@ -560,11 +611,14 @@
 
           <h3>Step 3 &mdash; When the excess deaths themselves happen</h3>
           <p>Independently of the harvest shape, the excess can land all in 2020 (default), fade linearly to
-             zero over N years (x(j) &prop; N&minus;j), or follow the <strong>empirical</strong> Gaussian fade
-             x(j) &prop; 2<sup>&minus;j&sup2;/4</sup> calibrated to the observed COVID pattern &mdash; relative
-             to 2020&rsquo;s level: 2021 = 84%, 2022 = 50% (exactly half), 2023 = 21%, 2024 = 6%, zero from
-             2025 (shares of the total: 38% / 32% / 19% / 8% / 2%). Timing only moves <em>when</em> the deaths
-             happen; the totals and the peak are untouched.</p>
+             zero over N years (x(j) &prop; N&minus;j), fade <strong>exponentially</strong>
+             (x(j) &prop; e<sup>&minus;r&middot;j</sup>, halving every ln2/r years; the tail is cut below
+             0.1% of 2020&rsquo;s level and renormalized so the window stays finite), or follow the
+             <strong>Gaussian</strong> fade x(j) &prop; 2<sup>&minus;j&sup2;/4</sup> &mdash; the shape that
+             most closely matches the excess actually observed. Relative to 2020&rsquo;s level: 2021 = 84%,
+             2022 = 50% (exactly half), 2023 = 21%, 2024 = 6%, zero from 2025 (shares of the total:
+             38% / 32% / 19% / 8% / 2%). Timing only moves <em>when</em> the deaths happen; the totals and
+             the peak are untouched.</p>
 
           <h3>Step 4 &mdash; The COVID path, multiples, and life expectancy at the valuation year</h3>
           <p>The COVID path adds the excess and subtracts the harvest, year by year; dividing by the surviving
@@ -787,14 +841,24 @@ const TABLE_BASE_YEAR = 2019;   // calendar year of the SSA 2019 base table
 const COVID_YEAR = 2020;        // all excess deaths are attributed to this year
 const N_BANDS = 21;             // 5-year bands: 0-4, ..., 95-99, 100+
 const DEFAULT_DECAY_RATE = 0.30;
-// Empirical excess timing: a GAUSSIAN fade calibrated to the observed
-// 2020-2024 pattern. Relative excess level in year j after 2020:
+// Gaussian excess timing, calibrated to the observed 2020-2024 pattern.
+// Relative excess level in year j after 2020:
 //     w(j) = 2^(-j^2/4)   for j = 0..4; zero from j = 5 (2025) on
 // -> 2020 = 100%, 2021 = 84%, 2022 = 50% (exactly half), 2023 = 21%,
 //    2024 = 6%, 2025+ = 0. Shares of the total: 38% / 32% / 19% / 8% / 2%.
-const EMPIRICAL_EXCESS_YEARS = 5;
-const EMPIRICAL_EXCESS_WEIGHTS = Array.from(
-  { length: EMPIRICAL_EXCESS_YEARS }, (_, j) => Math.pow(2, -(j * j) / 4));
+const GAUSSIAN_EXCESS_YEARS = 5;
+const GAUSSIAN_EXCESS_WEIGHTS = Array.from(
+  { length: GAUSSIAN_EXCESS_YEARS }, (_, j) => Math.pow(2, -(j * j) / 4));
+// Exponential excess timing: x(j) ~ e^(-r*j), cut once the level drops below
+// 0.1% of 2020's (at most 30 years) and renormalized, so the window stays
+// finite and conservation is exact.
+const DEFAULT_EXCESS_DECAY = 0.5;
+const EXP_EXCESS_CUTOFF = 1e-3, EXP_EXCESS_MAX_YEARS = 30;
+function expExcessYears(decayRate) {
+  if (decayRate <= 0) return EXP_EXCESS_MAX_YEARS;
+  return Math.max(1, Math.min(EXP_EXCESS_MAX_YEARS,
+    Math.floor(Math.log(1 / EXP_EXCESS_CUTOFF) / decayRate) + 1));
+}
 const bandIndex = (age) => Math.min(Math.floor(Math.max(age, 0) / 5), N_BANDS - 1);
 const bandLabel = (i) => (i === N_BANDS - 1 ? "100+" : (5 * i) + "–" + (5 * i + 4));
 
@@ -809,14 +873,19 @@ function harvestWeight(t, shape, gradeOutYears, decayRate) {
   return Math.max(0, 1 - (t - 1) / gradeOutYears);   // linear (default)
 }
 // x(t): absolute excess deaths landing in projection year t (0-indexed, t=0 = 2020).
-function excessTiming(X, shape, spreadYears, n) {
+function excessTiming(X, shape, spreadYears, n, decayRate) {
   const x = new Float64Array(n);
   if (shape === "linear" && spreadYears >= 2) {
     const gx = Math.floor(spreadYears);
     const wsum = gx * (gx + 1) / 2;
     for (let j = 0; j < Math.min(gx, n); j++) x[j] = X * (gx - j) / wsum;
-  } else if (shape === "empirical") {
-    const w = EMPIRICAL_EXCESS_WEIGHTS, wsum = w.reduce((a, b) => a + b, 0);
+  } else if (shape === "exponential") {
+    const yrs = expExcessYears(decayRate);
+    let wsum = 0;
+    for (let j = 0; j < yrs; j++) wsum += Math.exp(-decayRate * j);
+    for (let j = 0; j < Math.min(yrs, n); j++) x[j] = X * Math.exp(-decayRate * j) / wsum;
+  } else if (shape === "gaussian") {
+    const w = GAUSSIAN_EXCESS_WEIGHTS, wsum = w.reduce((a, b) => a + b, 0);
     for (let j = 0; j < Math.min(w.length, n); j++) x[j] = X * w[j] / wsum;
   } else {
     x[0] = X;   // "instant"
@@ -824,9 +893,10 @@ function excessTiming(X, shape, spreadYears, n) {
   return x;
 }
 // Last t-index (0-indexed) with potentially nonzero excess timing.
-function excessWindowEnd(shape, spreadYears) {
+function excessWindowEnd(shape, spreadYears, decayRate) {
   if (shape === "linear" && spreadYears >= 2) return Math.floor(spreadYears) - 1;
-  if (shape === "empirical") return EMPIRICAL_EXCESS_WEIGHTS.length - 1;
+  if (shape === "exponential") return expExcessYears(decayRate) - 1;
+  if (shape === "gaussian") return GAUSSIAN_EXCESS_WEIGHTS.length - 1;
   return 0;
 }
 
@@ -854,7 +924,7 @@ function calendarQx(age, year, sex, scale) {
 // Full bookkeeping for one cohort aged `age2020` in 2020; index t = calendar
 // year 2020 + t. All quantities are per person alive at the start of 2020.
 function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valuationYear,
-                          pfShape, decayRate, excShape, spreadYears, peakGiven) {
+                          pfShape, decayRate, excShape, spreadYears, excDecay, peakGiven) {
   const n = MAX_AGE - age2020 + 1;
   const q = new Float64Array(n);
   for (let t = 0; t < n; t++) q[t] = calendarQx(age2020 + t, COVID_YEAR + t, sex, scale);
@@ -897,7 +967,7 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
   }
 
   // Timing of the excess deaths, under the chosen excess-timing shape.
-  const x = excessTiming(X, excShape, spreadYears, n);
+  const x = excessTiming(X, excShape, spreadYears, n, excDecay);
 
   // COVID path: absolute-death bookkeeping inside the excess/harvest window,
   // baseline RATES after it (identical when the harvest fully repaid the
@@ -905,7 +975,7 @@ function runExcessCohort(age2020, sex, scale, excessByBand, gradeOutYears, valua
   // has no hard horizon, so it never reverts -- h(t)/x(t) just decay toward
   // (numerically indistinguishable from) zero.
   const winEnd = (pfShape === "linear" || pfShape === "step")
-    ? Math.max(G, excessWindowEnd(excShape, spreadYears))
+    ? Math.max(G, excessWindowEnd(excShape, spreadYears, excDecay))
     : n;   // sentinel: "t > winEnd" below never fires
   const Ac = new Float64Array(n + 1), Dc = new Float64Array(n);
   Ac[0] = 1;
@@ -1046,7 +1116,7 @@ const state = {
       female: new Array(N_BANDS).fill(50),
     },
     valuationYear: 2025,
-    excShape: "instant", spreadYears: 3,    // how the excess itself is timed across years
+    excShape: "instant", spreadYears: 3, excDecay: 0.5,   // how the excess itself is timed across years
   },
 };
 function applyPreset(key) {
@@ -1275,11 +1345,11 @@ function runFor(age, sex, scale) {
   if (state.driver === "direct" || off) {
     const peak = (off || state.driver !== "direct") ? 0 : p.peakFraction;
     return runExcessCohort(age, sex, scale, null, p.gradeOutYears, ex.valuationYear,
-                           p.shape, p.decayRate, ex.excShape, ex.spreadYears, peak);
+                           p.shape, p.decayRate, ex.excShape, ex.spreadYears, ex.excDecay, peak);
   }
   const bands = ex.bandsPct[sex].map((v) => v / 100);
   return runExcessCohort(age, sex, scale, bands, p.gradeOutYears, ex.valuationYear,
-                         p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
+                         p.shape, p.decayRate, ex.excShape, ex.spreadYears, ex.excDecay, null);
 }
 
 /* Both sides of the conservation equation are always on screen: the peak
@@ -1304,7 +1374,7 @@ function takeoverDirect(scale) {
     const sx = s.sex === "all" ? state.focusSex : s.sex;
     const bands = ex.bandsPct[sx].map((v) => v / 100);
     const r = runExcessCohort(segRepAge(s), sx, scale, bands, p.gradeOutYears, ex.valuationYear,
-                              p.shape, p.decayRate, ex.excShape, ex.spreadYears, null);
+                              p.shape, p.decayRate, ex.excShape, ex.spreadYears, ex.excDecay, null);
     if (Number.isFinite(r.peak)) p.peakFraction = Math.min(1, Math.round(r.peak * 1000) / 1000);
   });
   state.driver = "direct";
@@ -1413,7 +1483,7 @@ function render() {
       : `Focus cohort (${sexLabel.toLowerCase()}, ${state.focusAge} in 2020): the 2021 peak is solved so the harvested deaths repay the 2020 excess exactly, then ${pfShapeDesc}. Because the cohort ages into higher mortality, the same borrowed deaths are an ever-smaller share of each year's death count.`);
 
   // --- Chart 3: mortality multiple by calendar year + detail table ---
-  const excEnd = excessWindowEnd(ex.excShape, ex.spreadYears);
+  const excEnd = excessWindowEnd(ex.excShape, ex.spreadYears, ex.excDecay);
   const mEnd = Math.min(r.n - 1, Math.max(15, pfHorizon + 3, excEnd + 3));
   const mYears = [], mVals = [];
   for (let t = 0; t <= mEnd; t++) { mYears.push(COVID_YEAR + t); mVals.push(r.multiple[t]); }
@@ -1592,6 +1662,7 @@ function render() {
   parts.push(`--valuation-year ${V}`);
   if (ex.excShape !== "instant") parts.push(`--excess-shape ${ex.excShape}`);
   if (ex.excShape === "linear") parts.push(`--excess-spread ${ex.spreadYears}`);
+  if (ex.excShape === "exponential") parts.push(`--excess-decay ${ex.excDecay}`);
   parts.push(`--age ${state.focusAge}`, `--sex ${state.focusSex}`, ...imp.flags);
   $("cli-cmd").textContent = parts.join(" ");
   $("cli-note").textContent =
@@ -1685,21 +1756,32 @@ function syncControls() {
   $("ex-val").value = state.ex.valuationYear;
   $("ex-exc-instant").setAttribute("aria-pressed", state.ex.excShape === "instant");
   $("ex-exc-linear").setAttribute("aria-pressed", state.ex.excShape === "linear");
-  $("ex-exc-empirical").setAttribute("aria-pressed", state.ex.excShape === "empirical");
-  const excW = EMPIRICAL_EXCESS_WEIGHTS, excWSum = excW.reduce((a, b) => a + b, 0);
-  const empLevels = excW.map((w) => Math.round(w * 100) + "%").join(" / ");
-  const empShares = excW.map((w) => Math.round((w / excWSum) * 100) + "%").join(" / ");
+  $("ex-exc-exponential").setAttribute("aria-pressed", state.ex.excShape === "exponential");
+  $("ex-exc-gaussian").setAttribute("aria-pressed", state.ex.excShape === "gaussian");
+  const excW = GAUSSIAN_EXCESS_WEIGHTS, excWSum = excW.reduce((a, b) => a + b, 0);
+  const gauLevels = excW.map((w) => Math.round(w * 100) + "%").join(" / ");
+  const gauShares = excW.map((w) => Math.round((w / excWSum) * 100) + "%").join(" / ");
   const exN = state.ex.spreadYears, triSum = exN * (exN + 1) / 2;
   const triShares = Array.from({ length: exN }, (_, j) => Math.round(((exN - j) / triSum) * 100) + "%").join(" / ");
+  const exR = state.ex.excDecay, exYrs = expExcessYears(exR);
+  const expLevels = Array.from({ length: Math.min(4, exYrs) },
+    (_, j) => Math.round(Math.exp(-exR * j) * 100) + "%").join(" / ");
   $("ex-exc-hint").dataset.tip = state.ex.excShape === "instant"
     ? "All in 2020: x(2020) = 100% of the excess deaths; later years have none (pure harvesting from 2021 on)."
     : state.ex.excShape === "linear"
       ? `Linear fade: x(j) ∝ (N − j). With N = ${exN}, the total excess splits ${triShares} across 2020–${2019 + exN}.`
-      : `Empirical: a Gaussian fade x(j) ∝ 2^(−j²/4), fitted to the observed pattern. Level vs 2020: ${empLevels} across 2020–2024 ` +
-        `(2021 slightly below 2020, exactly half by 2022, muted 2023, near-normal 2024), zero from 2025. ` +
-        `Shares of the total excess: ${empShares}.`;
+      : state.ex.excShape === "exponential"
+        ? `Exponential fade: x(j) ∝ e^(−r·j) with r = ${exR}/yr — level vs 2020: ${expLevels} … over 2020–${2019 + exYrs}, ` +
+          `halving every ${(Math.LN2 / exR).toFixed(1)} yrs. Cut once below 0.1% of 2020's level (${exYrs} years) and renormalized.`
+        : `Gaussian fade: x(j) ∝ 2^(−j²/4) — the shape that most closely matches the excess actually observed. Level vs 2020: ${gauLevels} across 2020–2024 ` +
+          `(2021 slightly below 2020, exactly half by 2022, muted 2023, near-normal 2024), zero from 2025. ` +
+          `Shares of the total excess: ${gauShares}.`;
   $("ex-spread-row").classList.toggle("hidden", state.ex.excShape !== "linear");
   $("ex-spread-years").value = state.ex.spreadYears;
+  $("ex-excdecay-row").classList.toggle("hidden", state.ex.excShape !== "exponential");
+  $("ex-excdecay").value = state.ex.excDecay;
+  $("ex-excdecay-note").textContent =
+    `Halves every ${(Math.LN2 / exR).toFixed(1)} yrs; fades out by ${2019 + exYrs}.`;
 
   // Mortality improvement controls
   $("imp-enabled").checked = state.impEnabled;
@@ -1799,10 +1881,16 @@ function init() {
   });
   $("ex-exc-instant").addEventListener("click", () => { state.ex.excShape = "instant"; syncControls(); render(); });
   $("ex-exc-linear").addEventListener("click", () => { state.ex.excShape = "linear"; syncControls(); render(); });
-  $("ex-exc-empirical").addEventListener("click", () => { state.ex.excShape = "empirical"; syncControls(); render(); });
+  $("ex-exc-exponential").addEventListener("click", () => { state.ex.excShape = "exponential"; syncControls(); render(); });
+  $("ex-exc-gaussian").addEventListener("click", () => { state.ex.excShape = "gaussian"; syncControls(); render(); });
   $("ex-spread-years").addEventListener("change", (e) => {
     const v = parseInt(e.target.value, 10);
     if (Number.isFinite(v)) state.ex.spreadYears = Math.max(2, Math.min(10, v));
+    syncControls(); render();
+  });
+  $("ex-excdecay").addEventListener("change", (e) => {
+    const v = parseFloat(e.target.value);
+    if (Number.isFinite(v)) state.ex.excDecay = Math.max(0.05, Math.min(3, v));
     syncControls(); render();
   });
 

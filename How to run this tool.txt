@@ -212,16 +212,22 @@ WHAT TO SET:
 
   - "Excess timing across years" (its own sidebar section;
     applies in BOTH directions of the model):
-    three buttons, completely independent of the
+    four buttons, completely independent of the
     pullforward shape — this only controls WHEN the
     excess deaths happened, not how they get repaid.
-      All in 2020 (default) — the whole excess lands in a
+      All 2020 (default) — the whole excess lands in a
       single year.
-      Linear fade — spreads the same total over several
+      Linear — spreads the same total over several
       years, fading to zero (e.g. 50% over 3 years = 25% /
       16.7% / 8.3%).
-      Empirical — a bell-curve (Gaussian) fade fitted to
-      the actual COVID pattern: each year j after 2020
+      Expon. (exponential) — each year keeps e^(-r) of the
+      previous year's level, with the decay rate r as an
+      input (default 0.5/yr: the excess halves every ~1.4
+      years). The tail is cut once it falls below 0.1% of
+      2020's level and rescaled so the total is unchanged.
+      Gaussian — a bell-curve fade fitted to the actual
+      COVID pattern (of the four, this most closely matches
+      the excess actually observed): each year j after 2020
       keeps 2^(-j^2/4) of the 2020 level, so relative to
       2020 the excess runs 100% / 84% / 50% / 21% / 6%
       across 2020-2024 (exactly half by 2022) and is zero

@@ -54,15 +54,22 @@ with x(t) the TIMING of the excess deaths themselves and h(t) = f(t) x D_b(t)
 the harvested deaths. x(t) has its own shape, independent of the harvest
 shape:
 
-    instant:   all of X lands in 2020 (t=0)
-    linear:    X fades linearly to zero over N years from 2020 (a triangular
-               spread x(j) proportional to N-j: 2020 gets the most, year N-1
-               the least; over 3 years that is 50% / 33% / 17% of the total)
-    empirical: a Gaussian fade w(j) = 2^(-j^2/4) calibrated to the observed
-               COVID pattern — relative to 2020's level: 2021 = 84%, 2022 =
-               50% (exactly half), 2023 = 21% (muted), 2024 = 6% (almost
-               normal), zero from 2025 on. As shares of the total excess:
-               38% / 32% / 19% / 8% / 2% (see EMPIRICAL_EXCESS_WEIGHTS)
+    instant:     all of X lands in 2020 (t=0)
+    linear:      X fades linearly to zero over N years from 2020 (a triangular
+                 spread x(j) proportional to N-j: 2020 gets the most, year N-1
+                 the least; over 3 years that is 50% / 33% / 17% of the total)
+    exponential: x(j) proportional to e^(-r*j) with decay rate r (default
+                 0.5/yr: levels 100% / 61% / 37% / 22% / ... of 2020's,
+                 halving every ln2/r ~ 1.4 years). Truncated once the level
+                 drops below 0.1% of 2020's (at most 30 years) and
+                 renormalized, so the window stays finite and conservation
+                 is exact.
+    gaussian:    a Gaussian fade w(j) = 2^(-j^2/4) calibrated to the observed
+                 COVID pattern — relative to 2020's level: 2021 = 84%, 2022 =
+                 50% (exactly half), 2023 = 21% (muted), 2024 = 6% (almost
+                 normal), zero from 2025 on. As shares of the total excess:
+                 38% / 32% / 19% / 8% / 2% (see GAUSSIAN_EXCESS_WEIGHTS).
+                 (Formerly named "empirical", still accepted as an alias.)
 
 Period death rates, mortality multiples, and the valuation-year life
 expectancies follow directly:
@@ -99,8 +106,8 @@ TRAJECTORY_START = 2010
 TRAJECTORY_END = 2035
 DEFAULT_DECAY_RATE = 0.3
 
-# Empirical excess timing: a GAUSSIAN fade calibrated to the observed
-# 2020-2024 pattern. Relative excess level in year j after 2020:
+# Gaussian excess timing, calibrated to the observed 2020-2024 pattern.
+# Relative excess level in year j after 2020:
 #
 #     w(j) = 2^(-j^2 / 4)     for j = 0..4;  zero from j = 5 (2025) on
 #
@@ -109,13 +116,36 @@ DEFAULT_DECAY_RATE = 0.3
 #     2024 = 6%, 2025+ = 0  (the untruncated j=5 value, 1.3%, is dropped).
 # As shares of the TOTAL excess: 38% / 32% / 19% / 8% / 2%.
 # Normalized to sum to 1 before scaling by X.
-EMPIRICAL_EXCESS_YEARS = 5
-EMPIRICAL_EXCESS_WEIGHTS = tuple(
-    2.0 ** (-(j * j) / 4.0) for j in range(EMPIRICAL_EXCESS_YEARS)
+GAUSSIAN_EXCESS_YEARS = 5
+GAUSSIAN_EXCESS_WEIGHTS = tuple(
+    2.0 ** (-(j * j) / 4.0) for j in range(GAUSSIAN_EXCESS_YEARS)
 )
+# Backward-compatible aliases for the shape's former name.
+EMPIRICAL_EXCESS_YEARS = GAUSSIAN_EXCESS_YEARS
+EMPIRICAL_EXCESS_WEIGHTS = GAUSSIAN_EXCESS_WEIGHTS
+
+# Exponential excess timing: x(j) proportional to e^(-r*j). The tail is cut
+# once the level drops below 0.1% of 2020's (never beyond 30 years) and the
+# truncated weights are renormalized, keeping the window finite and the
+# conservation equation exact.
+DEFAULT_EXCESS_DECAY = 0.5
+EXP_EXCESS_CUTOFF = 1e-3
+EXP_EXCESS_MAX_YEARS = 30
 
 PULLFORWARD_SHAPES = ("linear", "step", "exponential")
-EXCESS_SHAPES = ("instant", "linear", "empirical")
+EXCESS_SHAPES = ("instant", "linear", "exponential", "gaussian")
+
+
+def _canon_excess_shape(shape: str) -> str:
+    return "gaussian" if shape == "empirical" else shape
+
+
+def exp_excess_years(decay_rate: float) -> int:
+    """Years with nonzero exponential excess timing (level >= 0.1% of 2020)."""
+    if decay_rate <= 0:
+        return EXP_EXCESS_MAX_YEARS
+    return max(1, min(EXP_EXCESS_MAX_YEARS,
+                      int(math.log(1.0 / EXP_EXCESS_CUTOFF) / decay_rate) + 1))
 
 
 def band_index(age: int) -> int:
@@ -186,20 +216,28 @@ def harvest_weight(t: int, shape: str, grade_out_years: int,
     return max(0.0, 1.0 - (t - 1) / grade_out_years)
 
 
-def excess_timing(X: float, shape: str, spread_years: int, n: int) -> list[float]:
+def excess_timing(X: float, shape: str, spread_years: int, n: int,
+                  decay_rate: float = DEFAULT_EXCESS_DECAY) -> list[float]:
     """
     x(t): absolute excess deaths landing in projection year t (0-indexed,
     t=0 is 2020), for the chosen timing shape. Always sums to X (up to
     truncation if the cohort's remaining lifetime n is very short).
     """
+    shape = _canon_excess_shape(shape)
     x = [0.0] * n
     if shape == "linear" and spread_years and spread_years >= 2:
         gx = int(spread_years)
         wsum = gx * (gx + 1) / 2
         for j in range(min(gx, n)):
             x[j] = X * (gx - j) / wsum
-    elif shape == "empirical":
-        w = EMPIRICAL_EXCESS_WEIGHTS
+    elif shape == "exponential":
+        yrs = exp_excess_years(decay_rate)
+        w = [math.exp(-decay_rate * j) for j in range(yrs)]
+        wsum = sum(w)
+        for j in range(min(yrs, n)):
+            x[j] = X * w[j] / wsum
+    elif shape == "gaussian":
+        w = GAUSSIAN_EXCESS_WEIGHTS
         wsum = sum(w)
         for j in range(min(len(w), n)):
             x[j] = X * w[j] / wsum
@@ -208,12 +246,16 @@ def excess_timing(X: float, shape: str, spread_years: int, n: int) -> list[float
     return x
 
 
-def excess_window_end(shape: str, spread_years: int) -> int:
+def excess_window_end(shape: str, spread_years: int,
+                      decay_rate: float = DEFAULT_EXCESS_DECAY) -> int:
     """Last t-index (0-indexed) with potentially nonzero excess timing."""
+    shape = _canon_excess_shape(shape)
     if shape == "linear" and spread_years and spread_years >= 2:
         return int(spread_years) - 1
-    if shape == "empirical":
-        return len(EMPIRICAL_EXCESS_WEIGHTS) - 1
+    if shape == "exponential":
+        return exp_excess_years(decay_rate) - 1
+    if shape == "gaussian":
+        return len(GAUSSIAN_EXCESS_WEIGHTS) - 1
     return 0
 
 
@@ -248,6 +290,7 @@ def run_excess_cohort(
     excess_spread_years: int = 3,
     max_age: int = 119,
     peak: Optional[float] = None,
+    excess_decay_rate: float = DEFAULT_EXCESS_DECAY,
 ) -> dict:
     """
     Full bookkeeping for one cohort (aged `age_2020` in 2020). Index
@@ -312,7 +355,7 @@ def run_excess_cohort(
         shortfall = X - harvested  # > 0 only when infeasible (f capped at 100%)
 
     # Timing of the excess deaths, under the chosen excess-timing shape.
-    x = excess_timing(X, excess_shape, excess_spread_years, n)
+    x = excess_timing(X, excess_shape, excess_spread_years, n, excess_decay_rate)
 
     # COVID path. Inside the excess/harvest window, deaths are baseline deaths
     # plus the excess timing minus the harvest (absolute-death bookkeeping).
@@ -323,7 +366,8 @@ def run_excess_cohort(
     # used throughout, and h(t)/x(t) simply decay toward (numerically
     # indistinguishable from) zero.
     if pullforward_shape in ("linear", "step"):
-        window = max(G, excess_window_end(excess_shape, excess_spread_years))
+        window = max(G, excess_window_end(excess_shape, excess_spread_years,
+                                          excess_decay_rate))
     else:
         window = n  # sentinel: "elif t > window" below never fires
     A_c = [0.0] * (n + 1)
@@ -411,6 +455,7 @@ def mortality_trajectory(
     max_age: int = 119,
     cohort_cache: Optional[dict] = None,
     peak: Optional[float] = None,
+    excess_decay_rate: float = DEFAULT_EXCESS_DECAY,
 ) -> dict:
     """
     Period mortality for a FIXED age across calendar years: the baseline
@@ -435,6 +480,7 @@ def mortality_trajectory(
                 c, sex, table, scale, excess_by_band, grade_out_years,
                 valuation_year, pullforward_shape, decay_rate,
                 excess_shape, excess_spread_years, max_age, peak,
+                excess_decay_rate,
             )
         r = cache[key]
         covid.append(r["q_covid"][k] if k < r["n"] else float("nan"))

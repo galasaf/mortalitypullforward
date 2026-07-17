@@ -45,12 +45,18 @@ HOW THE EXCESS ITSELF IS TIMED ACROSS YEARS
 ----------------------------------------------------------------------------
   python excess.py --excess-shape instant              # all in 2020 (default)
   python excess.py --excess-shape linear --excess-spread 3   # fades to zero over 3 yrs
-  python excess.py --excess-shape empirical             # Gaussian fade w(j) = 2^(-j^2/4),
+  python excess.py --excess-shape exponential --excess-decay 0.5
+                                                        #   x(j) ~ e^(-r*j): levels
+                                                        #   100/61/37/22/...% of 2020's,
+                                                        #   halving every ln2/r yrs; cut
+                                                        #   below 0.1% and renormalized
+  python excess.py --excess-shape gaussian              # Gaussian fade w(j) = 2^(-j^2/4),
                                                         #   fitted to the actual COVID
                                                         #   pattern: 100/84/50/21/6% of the
                                                         #   2020 level over 2020-2024, zero
                                                         #   from 2025 (38/32/19/8/2% of the
-                                                        #   total excess)
+                                                        #   total excess). "empirical" is
+                                                        #   accepted as an alias
 
 ----------------------------------------------------------------------------
 PER-BAND EXCESS (21 five-year bands: 0-4, 5-9, ..., 95-99, 100+)
@@ -108,6 +114,8 @@ from mortality_model.excess import (
     PULLFORWARD_SHAPES,
     EXCESS_SHAPES,
     DEFAULT_DECAY_RATE,
+    DEFAULT_EXCESS_DECAY,
+    exp_excess_years,
 )
 
 DEFAULT_AGES = [40, 50, 55, 60, 65, 70, 75, 80]  # ages IN 2020
@@ -161,8 +169,13 @@ def describe(args, excess_bands) -> str:
         harvest_desc = f"linear: ramps to zero over {args.grade_out} years"
     if args.excess_shape == "linear":
         excess_desc = f"graded linearly to zero over {args.excess_spread} years"
-    elif args.excess_shape == "empirical":
-        excess_desc = ("empirical Gaussian fade w(j) = 2^(-j^2/4): "
+    elif args.excess_shape == "exponential":
+        yrs = exp_excess_years(args.excess_decay)
+        excess_desc = (f"exponential fade x(j) ~ e^(-{args.excess_decay:g}*j): "
+                       f"halves every {0.6931 / args.excess_decay:.1f} yrs, "
+                       f"cut below 0.1% of 2020's level ({yrs} years)")
+    elif args.excess_shape == "gaussian":
+        excess_desc = ("Gaussian fade w(j) = 2^(-j^2/4), fitted to the observed pattern: "
                        "100/84/50/21/6% of the 2020 level over 2020-2024, zero after")
     else:
         excess_desc = "all in 2020"
@@ -227,15 +240,22 @@ def main():
                         f"exponential (default {DEFAULT_DECAY_RATE})")
     p.add_argument("--valuation-year", type=int, default=2025, dest="valuation_year",
                    help="standing point for LE gain / remaining multiples (default 2025)")
-    p.add_argument("--excess-shape", choices=EXCESS_SHAPES, default="instant",
-                   dest="excess_shape",
+    p.add_argument("--excess-shape", choices=EXCESS_SHAPES + ("empirical",),
+                   default="instant", dest="excess_shape",
                    help="how the 2020 excess itself is timed: instant (default, all in "
-                        "2020), linear (fades over --excess-spread years), or empirical "
-                        "(Gaussian fade 2^(-j^2/4): 100/84/50/21/6%% of the 2020 level "
-                        "over 2020-2024, zero from 2025)")
+                        "2020), linear (fades over --excess-spread years), exponential "
+                        "(x(j) ~ e^(-r*j) with r = --excess-decay), or gaussian "
+                        "(fade 2^(-j^2/4) fitted to the observed COVID pattern: "
+                        "100/84/50/21/6%% of the 2020 level over 2020-2024, zero from "
+                        "2025; 'empirical' is accepted as an alias)")
     p.add_argument("--excess-spread", type=int, default=3, dest="excess_spread",
                    help="years over which the excess fades to zero, for --excess-shape "
                         "linear (default 3)")
+    p.add_argument("--excess-decay", type=float, default=DEFAULT_EXCESS_DECAY,
+                   dest="excess_decay",
+                   help=f"decay rate for --excess-shape exponential (default "
+                        f"{DEFAULT_EXCESS_DECAY}: the excess halves every "
+                        f"~{0.6931 / DEFAULT_EXCESS_DECAY:.1f} years)")
     p.add_argument("--age", type=int, help="focus on one age IN 2020")
     p.add_argument("--sex", choices=["male", "female"])
     p.add_argument("--trajectory-age", type=int, dest="trajectory_age",
@@ -262,8 +282,13 @@ def main():
     if args.pullforward_shape == "exponential" and args.decay_rate <= 0:
         print("--decay-rate must be positive.")
         sys.exit(1)
+    if args.excess_shape == "empirical":
+        args.excess_shape = "gaussian"
     if args.excess_shape == "linear" and args.excess_spread < 2:
         print("--excess-spread must be at least 2 years (for --excess-shape linear).")
+        sys.exit(1)
+    if args.excess_shape == "exponential" and args.excess_decay <= 0:
+        print("--excess-decay must be positive.")
         sys.exit(1)
 
     excess_bands = parse_excess(args)
@@ -285,6 +310,7 @@ def main():
                 age, sex, table, scale, excess_bands[sex], args.grade_out,
                 args.valuation_year, args.pullforward_shape, args.decay_rate,
                 args.excess_shape, args.excess_spread, 119, args.peak,
+                args.excess_decay,
             ))
 
     direct = args.peak is not None
@@ -342,6 +368,7 @@ def main():
             traj_age, sex, table, scale, excess_bands[sex], args.grade_out,
             args.valuation_year, args.pullforward_shape, args.decay_rate,
             args.excess_shape, args.excess_spread, peak=args.peak,
+            excess_decay_rate=args.excess_decay,
         )
         trajectories.append(traj)
         print(f"\n=== Mortality trajectory at age {traj_age}, {sex} "
