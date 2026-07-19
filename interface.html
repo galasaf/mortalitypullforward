@@ -34,17 +34,12 @@
     background:
       radial-gradient(120% 180% at 100% 0%, rgba(12, 138, 109, 0.55) 0%, rgba(12, 138, 109, 0) 55%),
       linear-gradient(120deg, #17324E 0%, #14575C 60%, #0C8A6D 100%);
-    border-radius: 12px; padding: 22px 26px;
-    box-shadow: 0 12px 30px rgba(18, 48, 66, 0.18);
+    border-radius: 10px; padding: 12px 18px;
+    box-shadow: 0 8px 20px rgba(18, 48, 66, 0.16);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
   }
-  .masthead h1 { font-size: 23px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; color: #fff; }
-  .masthead p { margin: 0; color: rgba(255, 255, 255, 0.86); max-width: 82ch; font-size: 13.5px; }
-  .mast-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-  .mast-chips span {
-    font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: #fff;
-    background: rgba(255, 255, 255, 0.13); border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 999px; padding: 3px 11px;
-  }
+  .masthead h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; color: #fff; white-space: nowrap; }
+  .masthead p { margin: 0; color: rgba(255, 255, 255, 0.8); font-size: 12px; }
 
   .app { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 920px) { .app { grid-template-columns: 1fr; } }
@@ -270,18 +265,7 @@
   <header class="page">
     <div class="masthead">
       <h1>Mortality Pullforward Explorer</h1>
-      <p>COVID disproportionately killed people who were already close to dying: deaths were
-         &ldquo;pulled forward&rdquo; from the years just ahead. The pullforward and the cumulative excess
-         mortality it caused are two sides of one equation, so you can drive this tool from either side
-         &mdash; assume the pullforward and see the excess it implies, or assume each age group&rsquo;s
-         observed excess and let the model solve the pullforward. Either way it shows the bent mortality
-         trajectory and what survivors gain in life expectancy, standing at any valuation year.</p>
-      <div class="mast-chips" aria-hidden="true">
-        <span>One conservation equation</span>
-        <span>Drive it from either side</span>
-        <span>SSA 2019 table + improvement</span>
-        <span>Nothing leaves your browser</span>
-      </div>
+      <p>How much did COVID pull forward mortality, and how much life expectancy do survivors gain?</p>
     </div>
   </header>
 
